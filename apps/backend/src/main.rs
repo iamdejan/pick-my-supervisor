@@ -110,9 +110,10 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
             let item_id = item.to_owned().id.unwrap();
             return json!({
                 "id": extract_u64_from_point_id(&item_id).unwrap(),
-                "payload": &item.payload,
+                "name": &item.payload.get("name").unwrap(),
+                "slug": &item.payload.get("slug").unwrap(),
             });
         })
         .collect();
-    return Json(json!({"result": results}));
+    return Json(json!({"potential_supervisors": results}));
 }
