@@ -12,6 +12,13 @@ static COLLECTION_NAME: &'static str = "lecturers";
 
 static LECTURER_SLUGS: &[&str] = &["narsimlu-kemsaram", "zati", "ckloo-um", "sawsn"];
 
+fn unescape(raw_input: String) -> String {
+    raw_input
+        .replace(r"\n", "\n")
+        .replace(r"\t", "\t")
+        .replace(r"\\", "\\")
+}
+
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().unwrap();
@@ -58,7 +65,7 @@ async fn main() {
         .unwrap()
         .text()
         .collect::<Vec<_>>()[0];
-    println!("name = {:?}", name);
+    println!("name = {}", name);
 
     let biography_selector = Selector::parse("body > article > div > div.resume-body.ps-3.pe-4.pb-4.ms-4.pt-5 > div.row.cv-module-content.mr-4.mt-0.mb-0 > div > div").unwrap();
     let biography = document
@@ -67,9 +74,19 @@ async fn main() {
         .unwrap()
         .text()
         .collect::<Vec<_>>();
-    let biography = biography.join("");
+    let biography = unescape(biography.join(""));
     let biography = biography.trim();
-    println!("biography = {:?}", biography);
+    println!("biography = {}", biography);
+
+    let expertise_selector = Selector::parse(
+        "body > article > div > div.resume-body.ps-3.pe-4.pb-4.ms-4.pt-5 > section > div > ul > li",
+    )
+    .unwrap();
+    let areas_of_expertise = document
+        .select(&expertise_selector)
+        .map(|element| element.text().collect::<String>());
+    let areas_of_expertise: Vec<String> = areas_of_expertise.collect();
+    println!("areas_of_expertise = {:?}", areas_of_expertise);
 
     println!("Seed is done!");
 }
