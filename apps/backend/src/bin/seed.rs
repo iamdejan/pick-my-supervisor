@@ -172,6 +172,7 @@ async fn main() {
         .iter()
         .map(|p| {
             let mut payload = Payload::default();
+            payload.insert("slug", p.slug.clone());
             payload.insert("name", p.name.clone());
             payload.insert("biography", p.biography.clone());
             payload.insert("areas_of_expertise", p.areas_of_expertise.clone());
