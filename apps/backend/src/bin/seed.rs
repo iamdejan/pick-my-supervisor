@@ -14,7 +14,7 @@ use serde_json::json;
 
 static COLLECTION_NAME: &'static str = "lecturers";
 
-static LECTURER_SLUGS: &[&str] = &["narsimlu-kemsaram", "zati", "ckloo-um", "sawsn"];
+static LECTURER_SLUGS: &[&'static str] = &["narsimlu-kemsaram", "zati", "ckloo-um", "sawsn"];
 
 static TEMPLATE: &'static str = r#"
 # LECTURER: {}
@@ -72,110 +72,117 @@ async fn main() {
             .unwrap();
     }
 
-    let reqwest_client = reqwest::Client::builder().build().unwrap();
-    let request = reqwest_client.request(
-        reqwest::Method::GET,
-        format!("https://umexpert.um.edu.my/{}.html", LECTURER_SLUGS[0]).as_str(),
-    );
-    let response = request.send().await.unwrap();
-    let body = response.text().await.unwrap();
-    let body = body.trim();
-    let document = Html::parse_document(body);
-    let name_selector =
-        Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
-            .unwrap();
-    let name = document
-        .select(&name_selector)
-        .next()
-        .unwrap()
-        .text()
-        .collect::<Vec<_>>()[0]
-        .trim();
+    for element in LECTURER_SLUGS {
+        let slug = *element;
 
-    let biography_selector = Selector::parse(
-        "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
-    )
-    .unwrap();
-    let biography = document
-        .select(&biography_selector)
-        .next()
-        .unwrap()
-        .text()
-        .collect::<Vec<_>>();
-    let biography = unescape(biography.join(""));
-    let biography = biography.trim();
-
-    let expertise_selector =
-        Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
-            .unwrap();
-    let expertise_title_selector = Selector::parse(
-        "body > article > div > div.resume-body > section > div > ul > li > div.resume-degree",
-    )
-    .unwrap();
-    let expertise_item_selector = Selector::parse(
-        "body > article > div > div.resume-body > section > div > ul > li > div.area-item",
-    )
-    .unwrap();
-    let areas_of_expertise = document.select(&expertise_selector).map(|element| {
-        let title = element
-            .select(&expertise_title_selector)
+        let reqwest_client = reqwest::Client::builder().build().unwrap();
+        let request = reqwest_client.request(
+            reqwest::Method::GET,
+            format!("https://umexpert.um.edu.my/{}.html", slug).as_str(),
+        );
+        let response = request.send().await.unwrap();
+        let body = response.text().await.unwrap();
+        let body = body.trim();
+        let document = Html::parse_document(body);
+        let name_selector =
+            Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
+                .unwrap();
+        let name = document
+            .select(&name_selector)
             .next()
             .unwrap()
             .text()
-            .collect::<Vec<_>>();
-        let title = title.join("");
+            .collect::<Vec<_>>()[0]
+            .trim();
 
-        let item = element
-            .select(&expertise_item_selector)
-            .next()
-            .unwrap()
-            .text()
-            .collect::<Vec<_>>();
-        let item = item.join("");
-
-        return format!("{}: {}", title, item);
-    });
-    let areas_of_expertise: Vec<String> = areas_of_expertise
-        .map(|item| format!("- {}", item))
-        .collect();
-    let areas_of_expertise = areas_of_expertise.join("\n");
-    let areas_of_expertise = areas_of_expertise.as_str();
-
-    let markdown = TEMPLATE
-        .replacen("{}", name, 1)
-        .replacen("{}", biography, 1)
-        .replacen("{}", areas_of_expertise, 1);
-
-    let openai_base_url = env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "not_needed".to_string());
-    let openai_api_key = env::var("OPENAI_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
-    let request_body = json!({
-        "model": "qwen/qwen3-embedding-8b",
-        "input": markdown,
-    });
-    let embedding_request: reqwest::RequestBuilder = reqwest_client
-        .request(
-            reqwest::Method::POST,
-            format!("{}/embeddings", openai_base_url),
+        let biography_selector = Selector::parse(
+            "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
         )
-        .header("Authorization", format!("Bearer {}", openai_api_key))
-        .json(&request_body);
-    let embedding_response = embedding_request.send().await.unwrap();
-    let embedding_response_body: EmbeddingResponseBody = embedding_response.json().await.unwrap();
-
-    qdrant_client
-        .upsert_points(
-            UpsertPointsBuilder::new(
-                COLLECTION_NAME,
-                vec![PointStruct::new(
-                    uuid7::uuid7().to_string(),
-                    embedding_response_body.data[0].embedding.clone(),
-                    [("slug", LECTURER_SLUGS[0].into())],
-                )],
-            )
-            .wait(true),
-        )
-        .await
         .unwrap();
+        let biography = document
+            .select(&biography_selector)
+            .next()
+            .unwrap()
+            .text()
+            .collect::<Vec<_>>();
+        let biography = unescape(biography.join(""));
+        let biography = biography.trim();
+
+        let expertise_selector =
+            Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
+                .unwrap();
+        let expertise_title_selector = Selector::parse(
+            "body > article > div > div.resume-body > section > div > ul > li > div.resume-degree",
+        )
+        .unwrap();
+        let expertise_item_selector = Selector::parse(
+            "body > article > div > div.resume-body > section > div > ul > li > div.area-item",
+        )
+        .unwrap();
+        let areas_of_expertise = document.select(&expertise_selector).map(|element| {
+            let title = element
+                .select(&expertise_title_selector)
+                .next()
+                .unwrap()
+                .text()
+                .collect::<Vec<_>>();
+            let title = title.join("");
+
+            let item = element
+                .select(&expertise_item_selector)
+                .next()
+                .unwrap()
+                .text()
+                .collect::<Vec<_>>();
+            let item = item.join("");
+
+            return format!("{}: {}", title, item);
+        });
+        let areas_of_expertise: Vec<String> = areas_of_expertise
+            .map(|item| format!("- {}", item))
+            .collect();
+        let areas_of_expertise = areas_of_expertise.join("\n");
+        let areas_of_expertise = areas_of_expertise.as_str();
+
+        let markdown = TEMPLATE
+            .replacen("{}", name, 1)
+            .replacen("{}", biography, 1)
+            .replacen("{}", areas_of_expertise, 1);
+
+        let openai_base_url =
+            env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "not_needed".to_string());
+        let openai_api_key =
+            env::var("OPENAI_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+        let request_body = json!({
+            "model": "qwen/qwen3-embedding-8b",
+            "input": markdown,
+        });
+        let embedding_request: reqwest::RequestBuilder = reqwest_client
+            .request(
+                reqwest::Method::POST,
+                format!("{}/embeddings", openai_base_url),
+            )
+            .header("Authorization", format!("Bearer {}", openai_api_key))
+            .json(&request_body);
+        let embedding_response = embedding_request.send().await.unwrap();
+        let embedding_response_body: EmbeddingResponseBody =
+            embedding_response.json().await.unwrap();
+
+        qdrant_client
+            .upsert_points(
+                UpsertPointsBuilder::new(
+                    COLLECTION_NAME,
+                    vec![PointStruct::new(
+                        uuid7::uuid7().to_string(),
+                        embedding_response_body.data[0].embedding.clone(),
+                        [("slug", slug.into())],
+                    )],
+                )
+                .wait(true),
+            )
+            .await
+            .unwrap();
+    }
 
     println!("Seed is done!");
 }
