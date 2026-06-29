@@ -1,9 +1,12 @@
 use std::{collections::HashMap, env};
 
-use axum::{Json, Router, routing::get};
+use axum::{
+    Json, Router,
+    routing::{get, post},
+};
 use qdrant_client::{
     Qdrant,
-    qdrant::{Document, Query, QueryPointsBuilder},
+    qdrant::{Document, PointId, Query, QueryPointsBuilder, point_id::PointIdOptions},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -22,8 +25,8 @@ async fn main() {
     dotenvy::dotenv().unwrap();
 
     let app = Router::new()
-        .route("/api/health", get(health_check))
-        .route("/api/supervisors/pick", get(pick_supervisor))
+        .route("/healthcheck", get(health_check))
+        .route("/supervisors/pick", post(pick_supervisor))
         .layer(CorsLayer::permissive()); // Allow all origins for dev
 
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
@@ -37,6 +40,19 @@ async fn main() {
 
 async fn health_check() -> Json<Value> {
     Json(json!({"status": "ok", "message": "Axum backend is running!"}))
+}
+
+fn extract_u64_from_point_id(point_id: &PointId) -> Option<u64> {
+    match &point_id.point_id_options {
+        // Matches if the PointId is a u64 number
+        Some(PointIdOptions::Num(num)) => Some(*num),
+
+        // Return None if the PointId is a UUID string
+        Some(PointIdOptions::Uuid(_uuid)) => None,
+
+        // Return None if the PointId is empty
+        None => None,
+    }
 }
 
 static TEMPLATE: &'static str = r#"
@@ -81,9 +97,22 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
                     model: "openrouter/qwen/qwen3-embedding-8b".into(),
                     options: HashMap::new(),
                 }))
+                .limit(2)
+                .with_payload(true)
                 .build(),
         )
         .await
         .unwrap();
-    return Json(json!({"result": format!("{:?}", query_response)}));
+    let results: Vec<Value> = query_response
+        .result
+        .iter()
+        .map(|item| {
+            let item_id = item.to_owned().id.unwrap();
+            return json!({
+                "id": extract_u64_from_point_id(&item_id).unwrap(),
+                "payload": &item.payload,
+            });
+        })
+        .collect();
+    return Json(json!({"result": results}));
 }
