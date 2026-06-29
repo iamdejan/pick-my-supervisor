@@ -7,6 +7,7 @@ use qdrant_client::{
 };
 use reqwest;
 use scraper::{Html, Selector};
+use serde_json::json;
 
 static COLLECTION_NAME: &'static str = "lecturers";
 
@@ -37,10 +38,10 @@ async fn main() {
 
     let cluster_endpoint =
         env::var("QDRANT_CLUSTER_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:6334".to_string());
-    let api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+    let qdrant_api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
 
     let qdrant_client = Qdrant::from_url(cluster_endpoint.as_str())
-        .api_key(api_key)
+        .api_key(qdrant_api_key)
         .build()
         .unwrap();
     let collection_exist = qdrant_client
@@ -74,9 +75,13 @@ async fn main() {
         .next()
         .unwrap()
         .text()
-        .collect::<Vec<_>>()[0].trim();
+        .collect::<Vec<_>>()[0]
+        .trim();
 
-    let biography_selector = Selector::parse("body > article > div > div.resume-body > div.row.cv-module-content > div > div").unwrap();
+    let biography_selector = Selector::parse(
+        "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
+    )
+    .unwrap();
     let biography = document
         .select(&biography_selector)
         .next()
@@ -116,7 +121,9 @@ async fn main() {
 
         return format!("{}: {}", title, item);
     });
-    let areas_of_expertise: Vec<String> = areas_of_expertise.map(|item| format!("- {}", item)).collect();
+    let areas_of_expertise: Vec<String> = areas_of_expertise
+        .map(|item| format!("- {}", item))
+        .collect();
     let areas_of_expertise = areas_of_expertise.join("\n");
     let areas_of_expertise = areas_of_expertise.as_str();
 
@@ -125,6 +132,23 @@ async fn main() {
         .replacen("{}", biography, 1)
         .replacen("{}", areas_of_expertise, 1);
     println!("{}", markdown);
+
+    let openai_base_url = env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "not_needed".to_string());
+    let openai_api_key = env::var("OPENAI_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+    let request_body = json!({
+        "model": "openai/text-embedding-3-small",
+        "input": markdown,
+    });
+    let embedding_request = reqwest_client
+        .request(
+            reqwest::Method::POST,
+            format!("{}/embeddings", openai_base_url),
+        )
+        .header("Authorization", format!("Bearer {}", openai_api_key))
+        .header("Content-Type", "application/json")
+        .body(request_body)
+        .build();
+    let embedding_response = embedding_request.send().await.unwrap();
 
     println!("Seed is done!");
 }
