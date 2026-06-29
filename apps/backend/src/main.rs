@@ -1,8 +1,8 @@
 use std::env;
 
-use axum::{Router, routing::get, Json};
+use axum::{Json, Router, routing::get};
+use serde_json::{Value, json};
 use tower_http::cors::CorsLayer;
-use serde_json::{json, Value};
 
 #[tokio::main]
 async fn main() {
