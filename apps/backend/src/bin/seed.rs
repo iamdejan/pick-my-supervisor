@@ -46,8 +46,7 @@ async fn main() {
     );
     let response = request.send().await.unwrap();
     let body = response.text().await.unwrap();
-
-    println!("{}", body);
+    let body = body.trim();
 
     println!("Seed is done!");
 }
