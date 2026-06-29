@@ -16,11 +16,9 @@ static TEMPLATE: &'static str = r#"
 # LECTURER: {}
 
 ## Biography:
-\n
 {}
 
 ## Area of Expertise:
-\n
 {}
 "#;
 
@@ -120,8 +118,12 @@ async fn main() {
     });
     let areas_of_expertise: Vec<String> = areas_of_expertise.map(|item| format!("- {}", item)).collect();
     let areas_of_expertise = areas_of_expertise.join("\n");
+    let areas_of_expertise = areas_of_expertise.as_str();
 
-    let markdown = format!(TEMPLATE, name, biography, areas_of_expertise);
+    let markdown = TEMPLATE
+        .replacen("{}", name, 1)
+        .replacen("{}", biography, 1)
+        .replacen("{}", areas_of_expertise, 1);
     println!("{}", markdown);
 
     println!("Seed is done!");
