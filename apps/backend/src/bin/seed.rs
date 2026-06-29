@@ -1,7 +1,7 @@
 use std::{collections::HashMap, env};
 
 use qdrant_client::{
-    Qdrant,
+    Payload, Qdrant,
     qdrant::{
         CreateCollectionBuilder, Distance, Document, PointStruct, UpsertPointsBuilder,
         VectorParamsBuilder,
@@ -36,6 +36,9 @@ static TEMPLATE: &'static str = r#"
 pub struct InsertionData {
     pub id: u64,
     pub slug: String,
+    pub name: String,
+    pub biography: String,
+    pub areas_of_expertise: String,
     pub text: String,
 }
 
@@ -158,6 +161,9 @@ async fn main() {
             id: i as u64,
             slug: slug.into(),
             text: markdown,
+            name: name.to_string(),
+            biography: biography.to_string(),
+            areas_of_expertise: areas_of_expertise.to_string(),
         });
         println!("Preparing slug {} for insertion", slug);
     }
@@ -165,15 +171,20 @@ async fn main() {
     let points: Vec<PointStruct> = data_for_insertion
         .iter()
         .map(|p| {
-            PointStruct::new(
+            let mut payload = Payload::default();
+            payload.insert("name", p.name.clone());
+            payload.insert("biography", p.biography.clone());
+            payload.insert("areas_of_expertise", p.areas_of_expertise.clone());
+
+            return PointStruct::new(
                 p.id,
                 Document {
                     text: p.text.clone(),
                     model: "openrouter/qwen/qwen3-embedding-8b".into(),
                     options: HashMap::new(),
                 },
-                [("slug", p.slug.clone().into())],
-            )
+                payload,
+            );
         })
         .collect();
     qdrant_client
