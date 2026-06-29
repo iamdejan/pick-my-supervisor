@@ -3,10 +3,13 @@ use std::env;
 use dotenvy;
 use qdrant_client::{
     Qdrant,
-    qdrant::{CreateCollectionBuilder, Distance, VectorParamsBuilder},
+    qdrant::{
+        CreateCollectionBuilder, Distance, PointStruct, UpsertPointsBuilder, VectorParamsBuilder,
+    },
 };
 use reqwest;
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 static COLLECTION_NAME: &'static str = "lecturers";
@@ -22,6 +25,17 @@ static TEMPLATE: &'static str = r#"
 ## Area of Expertise:
 {}
 "#;
+
+#[derive(Serialize, Deserialize)]
+pub struct EmbeddingResponseData {
+    pub object: String,
+    pub embedding: Vec<f32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EmbeddingResponseBody {
+    pub data: Vec<EmbeddingResponseData>,
+}
 
 fn unescape(raw_input: String) -> String {
     raw_input
@@ -52,7 +66,7 @@ async fn main() {
         qdrant_client
             .create_collection(
                 CreateCollectionBuilder::new(COLLECTION_NAME)
-                    .vectors_config(VectorParamsBuilder::new(1024, Distance::Cosine)),
+                    .vectors_config(VectorParamsBuilder::new(4096, Distance::Cosine)),
             )
             .await
             .unwrap();
@@ -131,24 +145,37 @@ async fn main() {
         .replacen("{}", name, 1)
         .replacen("{}", biography, 1)
         .replacen("{}", areas_of_expertise, 1);
-    println!("{}", markdown);
 
     let openai_base_url = env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "not_needed".to_string());
     let openai_api_key = env::var("OPENAI_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
     let request_body = json!({
-        "model": "openai/text-embedding-3-small",
+        "model": "qwen/qwen3-embedding-8b",
         "input": markdown,
     });
-    let embedding_request = reqwest_client
+    let embedding_request: reqwest::RequestBuilder = reqwest_client
         .request(
             reqwest::Method::POST,
             format!("{}/embeddings", openai_base_url),
         )
         .header("Authorization", format!("Bearer {}", openai_api_key))
-        .header("Content-Type", "application/json")
-        .body(request_body)
-        .build();
+        .json(&request_body);
     let embedding_response = embedding_request.send().await.unwrap();
+    let embedding_response_body: EmbeddingResponseBody = embedding_response.json().await.unwrap();
+
+    qdrant_client
+        .upsert_points(
+            UpsertPointsBuilder::new(
+                COLLECTION_NAME,
+                vec![PointStruct::new(
+                    uuid7::uuid7().to_string(),
+                    embedding_response_body.data[0].embedding.clone(),
+                    [("slug", LECTURER_SLUGS[0].into())],
+                )],
+            )
+            .wait(true),
+        )
+        .await
+        .unwrap();
 
     println!("Seed is done!");
 }
