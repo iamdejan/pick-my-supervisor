@@ -6,6 +6,7 @@ use qdrant_client::{
     qdrant::{CreateCollectionBuilder, Distance, VectorParamsBuilder},
 };
 use reqwest;
+use scraper::{Html, Selector};
 
 static COLLECTION_NAME: &'static str = "lecturers";
 
@@ -47,6 +48,17 @@ async fn main() {
     let response = request.send().await.unwrap();
     let body = response.text().await.unwrap();
     let body = body.trim();
+    let document = Html::parse_document(body);
+    let name_selector =
+        Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
+            .unwrap();
+    let name = document
+        .select(&name_selector)
+        .next()
+        .unwrap()
+        .text()
+        .collect::<Vec<_>>()[0];
+    println!("name = {:?}", name);
 
     println!("Seed is done!");
 }
