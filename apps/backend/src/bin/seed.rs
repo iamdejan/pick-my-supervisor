@@ -19,7 +19,10 @@ static LECTURER_SLUGS: &[&'static str] = &[
     "zati",
     "ckloo-um",
     "nuruljapar",
-    // "sawsn", // no biography, need special handling
+    "erma",
+    "cs-chan",
+    "cswoo",
+    "shahreeza"
 ];
 
 static TEMPLATE: &'static str = r#"
