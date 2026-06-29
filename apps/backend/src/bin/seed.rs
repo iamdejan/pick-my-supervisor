@@ -14,7 +14,13 @@ use serde_json::json;
 
 static COLLECTION_NAME: &'static str = "lecturers";
 
-static LECTURER_SLUGS: &[&'static str] = &["narsimlu-kemsaram", "zati", "ckloo-um", "sawsn"];
+static LECTURER_SLUGS: &[&'static str] = &[
+    "narsimlu-kemsaram",
+    "zati",
+    "ckloo-um",
+    "nuruljapar",
+    // "sawsn", // no biography, need special handling
+];
 
 static TEMPLATE: &'static str = r#"
 # LECTURER: {}
@@ -35,6 +41,12 @@ pub struct EmbeddingResponseData {
 #[derive(Serialize, Deserialize)]
 pub struct EmbeddingResponseBody {
     pub data: Vec<EmbeddingResponseData>,
+}
+
+pub struct InsertionData {
+    pub id: u64,
+    pub slug: String,
+    pub embedding: Vec<f32>,
 }
 
 fn unescape(raw_input: String) -> String {
@@ -72,7 +84,8 @@ async fn main() {
             .unwrap();
     }
 
-    for element in LECTURER_SLUGS {
+    let mut data_for_insertion: Vec<InsertionData> = Vec::new();
+    for (i, element) in LECTURER_SLUGS.iter().enumerate() {
         let slug = *element;
 
         let reqwest_client = reqwest::Client::builder().build().unwrap();
@@ -168,21 +181,22 @@ async fn main() {
         let embedding_response_body: EmbeddingResponseBody =
             embedding_response.json().await.unwrap();
 
-        qdrant_client
-            .upsert_points(
-                UpsertPointsBuilder::new(
-                    COLLECTION_NAME,
-                    vec![PointStruct::new(
-                        uuid7::uuid7().to_string(),
-                        embedding_response_body.data[0].embedding.clone(),
-                        [("slug", slug.into())],
-                    )],
-                )
-                .wait(true),
-            )
-            .await
-            .unwrap();
+        data_for_insertion.push(InsertionData {
+            id: i as u64,
+            slug: slug.into(),
+            embedding: embedding_response_body.data[0].embedding.clone(),
+        });
+        println!("Preparing slug {} for insertion", slug);
     }
+
+    let points: Vec<PointStruct> = data_for_insertion
+        .iter()
+        .map(|p| PointStruct::new(p.id, p.embedding.clone(), [("slug", p.slug.clone().into())]))
+        .collect();
+    qdrant_client
+        .upsert_points(UpsertPointsBuilder::new(COLLECTION_NAME, points).wait(true))
+        .await
+        .unwrap();
 
     println!("Seed is done!");
 }
