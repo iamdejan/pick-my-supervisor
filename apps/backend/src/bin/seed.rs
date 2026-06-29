@@ -1,16 +1,14 @@
-use std::env;
+use std::{collections::HashMap, env};
 
-use dotenvy;
 use qdrant_client::{
     Qdrant,
     qdrant::{
-        CreateCollectionBuilder, Distance, PointStruct, UpsertPointsBuilder, VectorParamsBuilder,
+        CreateCollectionBuilder, Distance, Document, PointStruct, UpsertPointsBuilder,
+        VectorParamsBuilder,
     },
 };
 use reqwest;
 use scraper::{Html, Selector};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 static COLLECTION_NAME: &'static str = "lecturers";
 
@@ -22,7 +20,7 @@ static LECTURER_SLUGS: &[&'static str] = &[
     "erma",
     "cs-chan",
     "cswoo",
-    "shahreeza"
+    "shahreeza",
 ];
 
 static TEMPLATE: &'static str = r#"
@@ -35,21 +33,10 @@ static TEMPLATE: &'static str = r#"
 {}
 "#;
 
-#[derive(Serialize, Deserialize)]
-pub struct EmbeddingResponseData {
-    pub object: String,
-    pub embedding: Vec<f32>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct EmbeddingResponseBody {
-    pub data: Vec<EmbeddingResponseData>,
-}
-
 pub struct InsertionData {
     pub id: u64,
     pub slug: String,
-    pub embedding: Vec<f32>,
+    pub text: String,
 }
 
 fn unescape(raw_input: String) -> String {
@@ -68,6 +55,8 @@ async fn main() {
     let cluster_endpoint =
         env::var("QDRANT_CLUSTER_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:6334".to_string());
     let qdrant_api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+    let openrouter_api_key =
+        env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
 
     let qdrant_client = Qdrant::from_url(cluster_endpoint.as_str())
         .api_key(qdrant_api_key)
@@ -165,38 +154,30 @@ async fn main() {
             .replacen("{}", biography, 1)
             .replacen("{}", areas_of_expertise, 1);
 
-        let openai_base_url =
-            env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "not_needed".to_string());
-        let openai_api_key =
-            env::var("OPENAI_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
-        let request_body = json!({
-            "model": "qwen/qwen3-embedding-8b",
-            "input": markdown,
-        });
-        let embedding_request: reqwest::RequestBuilder = reqwest_client
-            .request(
-                reqwest::Method::POST,
-                format!("{}/embeddings", openai_base_url),
-            )
-            .header("Authorization", format!("Bearer {}", openai_api_key))
-            .json(&request_body);
-        let embedding_response = embedding_request.send().await.unwrap();
-        let embedding_response_body: EmbeddingResponseBody =
-            embedding_response.json().await.unwrap();
-
         data_for_insertion.push(InsertionData {
             id: i as u64,
             slug: slug.into(),
-            embedding: embedding_response_body.data[0].embedding.clone(),
+            text: markdown,
         });
         println!("Preparing slug {} for insertion", slug);
     }
 
     let points: Vec<PointStruct> = data_for_insertion
         .iter()
-        .map(|p| PointStruct::new(p.id, p.embedding.clone(), [("slug", p.slug.clone().into())]))
+        .map(|p| {
+            PointStruct::new(
+                p.id,
+                Document {
+                    text: p.text.clone(),
+                    model: "openrouter/qwen/qwen3-embedding-8b".into(),
+                    options: HashMap::new(),
+                },
+                [("slug", p.slug.clone().into())],
+            )
+        })
         .collect();
     qdrant_client
+        .with_header("openrouter-api-key", openrouter_api_key)
         .upsert_points(UpsertPointsBuilder::new(COLLECTION_NAME, points).wait(true))
         .await
         .unwrap();
