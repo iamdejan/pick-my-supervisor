@@ -60,5 +60,16 @@ async fn main() {
         .collect::<Vec<_>>()[0];
     println!("name = {:?}", name);
 
+    let biography_selector = Selector::parse("body > article > div > div.resume-body.ps-3.pe-4.pb-4.ms-4.pt-5 > div.row.cv-module-content.mr-4.mt-0.mb-0 > div > div").unwrap();
+    let biography = document
+        .select(&biography_selector)
+        .next()
+        .unwrap()
+        .text()
+        .collect::<Vec<_>>();
+    let biography = biography.join("");
+    let biography = biography.trim();
+    println!("biography = {:?}", biography);
+
     println!("Seed is done!");
 }
