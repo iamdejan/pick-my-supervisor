@@ -12,6 +12,18 @@ static COLLECTION_NAME: &'static str = "lecturers";
 
 static LECTURER_SLUGS: &[&str] = &["narsimlu-kemsaram", "zati", "ckloo-um", "sawsn"];
 
+static TEMPLATE: &'static str = r#"
+# LECTURER: {}
+
+## Biography:
+\n
+{}
+
+## Area of Expertise:
+\n
+{}
+"#;
+
 fn unescape(raw_input: String) -> String {
     raw_input
         .replace(r"\n", "\n")
@@ -64,10 +76,9 @@ async fn main() {
         .next()
         .unwrap()
         .text()
-        .collect::<Vec<_>>()[0];
-    println!("name = {}", name);
+        .collect::<Vec<_>>()[0].trim();
 
-    let biography_selector = Selector::parse("body > article > div > div.resume-body.ps-3.pe-4.pb-4.ms-4.pt-5 > div.row.cv-module-content.mr-4.mt-0.mb-0 > div > div").unwrap();
+    let biography_selector = Selector::parse("body > article > div > div.resume-body > div.row.cv-module-content > div > div").unwrap();
     let biography = document
         .select(&biography_selector)
         .next()
@@ -76,17 +87,42 @@ async fn main() {
         .collect::<Vec<_>>();
     let biography = unescape(biography.join(""));
     let biography = biography.trim();
-    println!("biography = {}", biography);
 
-    let expertise_selector = Selector::parse(
-        "body > article > div > div.resume-body.ps-3.pe-4.pb-4.ms-4.pt-5 > section > div > ul > li",
+    let expertise_selector =
+        Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
+            .unwrap();
+    let expertise_title_selector = Selector::parse(
+        "body > article > div > div.resume-body > section > div > ul > li > div.resume-degree",
     )
     .unwrap();
-    let areas_of_expertise = document
-        .select(&expertise_selector)
-        .map(|element| element.text().collect::<String>());
-    let areas_of_expertise: Vec<String> = areas_of_expertise.collect();
-    println!("areas_of_expertise = {:?}", areas_of_expertise);
+    let expertise_item_selector = Selector::parse(
+        "body > article > div > div.resume-body > section > div > ul > li > div.area-item",
+    )
+    .unwrap();
+    let areas_of_expertise = document.select(&expertise_selector).map(|element| {
+        let title = element
+            .select(&expertise_title_selector)
+            .next()
+            .unwrap()
+            .text()
+            .collect::<Vec<_>>();
+        let title = title.join("");
+
+        let item = element
+            .select(&expertise_item_selector)
+            .next()
+            .unwrap()
+            .text()
+            .collect::<Vec<_>>();
+        let item = item.join("");
+
+        return format!("{}: {}", title, item);
+    });
+    let areas_of_expertise: Vec<String> = areas_of_expertise.map(|item| format!("- {}", item)).collect();
+    let areas_of_expertise = areas_of_expertise.join("\n");
+
+    let markdown = format!(TEMPLATE, name, biography, areas_of_expertise);
+    println!("{}", markdown);
 
     println!("Seed is done!");
 }
