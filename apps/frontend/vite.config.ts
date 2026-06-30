@@ -35,9 +35,6 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./setupVitest.ts"],
-    transformMode: {
-      web: [/\.[jt]sx?$/],
-    },
     coverage: {
       enabled: true,
       reporter: ["text", "html"],
