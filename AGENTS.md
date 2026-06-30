@@ -23,17 +23,6 @@ Make sure you adhere to the guide on this file to generate the code.
 4. You're not allowed to add `#[allow(dead_code)]`.
 5. You have to add unit tests as well.
 
-#### Debugging
-
-In this repository, we don't have Rust installed in local machine. Instead, `rustc` and `cargo` executables are managed by Pixi, which is why in [pixi.toml](pixi.toml) under `[dependencies]` section you will have `rust` listed as dependency.
-
-The consequence is that every `rustc` and `cargo` command you want to run should be run under `pixi run` command. I will list some of the examples here:
-- Check Rust version: Instead of `rustc --version`, you should run `pixi run rustc --version`.
-- Run all unit tests: Instead of `cargo test`, you should run `pixi run cargo test`.
-  - In the case of running all unit tests, you should execute `pixi run test` instead, following the task defined in [pixi.toml](pixi.toml).
-- Run the program: Instead of `cargo run`, you should run `pixi run cargo run`.
-  - In the case of running the program (or the main function), you should execute `pixi run start` instead, following the task defined in [pixi.toml](pixi.toml).
-
 ### Code Validation
 
 After generating the code, make sure you validate the code you generated.
@@ -41,12 +30,12 @@ After generating the code, make sure you validate the code you generated.
 #### Steps to Validate
 
 Run these commands in sequence:
-1. `pixi run fmt`: format your code. This ensures that the code written by human and by you (coding agent) are consistent, following the style that Rust has provided.
-2. `pixi run lint`: ensure no linter errors.
-3. `pixi run lint-fix`: if there is any linter error, fix it with this command.
-4. `pixi run lint`: recheck again, maybe there are linter errors that need manual fix.
-5. `pixi run test`: build the code, then run all unit tests. This ensures that the code you generate pass all the unit tests.
-6. `pixi run start`: run the code.
+1. `cargo fmt`: format your code. This ensures that the code written by human and by you (coding agent) are consistent, following the style that Rust has provided.
+2.
+2. `cargo clippy -- -D warnings`: ensure no linter errors.
+3. `cargo clippy --fix --allow-dirty`: if there is any linter error, fix it with this command.
+4. `cargo clippy -- -D warnings`: recheck again, maybe there are linter errors that need manual fix.
+5. `cargo test`: build the code, then run all unit tests. This ensures that the code you generate pass all the unit tests.
 
 ### Update Documentation
 
