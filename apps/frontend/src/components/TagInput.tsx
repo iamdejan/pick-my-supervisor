@@ -1,4 +1,4 @@
-import { createSignal, For, type JSX } from "solid-js";
+import { createSignal, For, Show, type JSX } from "solid-js";
 
 /**
  * Props accepted by the {@link TagInput} component.
@@ -10,6 +10,8 @@ export type TagInputProps = {
   onChange: (newTags: string[]) => void;
   /** Accessible label rendered above the input. */
   label: string;
+  /** Accessible description. */
+  description?: string;
   /** Placeholder text shown inside the text input. */
   placeholder?: string;
   /** Error message displayed below the input. */
@@ -104,10 +106,16 @@ export default function TagInput(props: TagInputProps): JSX.Element {
     <div>
       <label
         for="tag-input-field"
-        class="mb-1.5 block text-sm font-medium text-foreground"
+        class="mb-1.5 block text-md font-medium text-foreground"
       >
         {props.label}
       </label>
+
+      <Show when={props.description}>
+        <label class="mb-1.5 block text-sm">
+          {props.description}
+        </label>
+      </Show>
       <div class="flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background transition-shadow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
         <For each={props.tags}>
           {(tag, index) => (

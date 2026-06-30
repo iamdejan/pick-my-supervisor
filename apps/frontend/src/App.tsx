@@ -45,10 +45,10 @@ export default function App(): JSX.Element {
       </div>
 
       <main class="w-full max-w-lg rounded-lg border border-border bg-background p-6 shadow-sm sm:p-8">
-        <h1 class="mb-1 text-2xl font-bold tracking-tight text-foreground">
+        <h1 class="mb-1 text-3xl font-bold tracking-tight text-foreground">
           Pick My Supervisor
         </h1>
-        <p class="mb-6 text-sm text-muted-foreground">
+        <p class="mb-6 text-md text-muted-foreground">
           Tell us about your research interests and what you are looking for in
           a supervisor.
         </p>
@@ -56,6 +56,7 @@ export default function App(): JSX.Element {
         <form onSubmit={handleSubmit} class="flex flex-col gap-5">
           <TagInput
             tags={tags()}
+            description="Type your area of interest, e.g. 'Machine Learning' or 'HCI'. Press 'Enter' or ',' after you've finished typing the tag. Then, the tag will be added."
             onChange={setTags}
             label="My interests"
             placeholder="e.g. Machine Learning, HCI"
@@ -66,9 +67,9 @@ export default function App(): JSX.Element {
           <div>
             <label
               for="description"
-              class="mb-1.5 block text-sm font-medium text-foreground"
+              class="mb-1.5 block text-md font-medium text-foreground"
             >
-              Tell us more about what you are looking for
+              Tell us more about your supervisor's preferred background.
             </label>
             <textarea
               id="description"
@@ -76,7 +77,7 @@ export default function App(): JSX.Element {
               maxLength={maxChars}
               value={description()}
               onInput={handleDescriptionInput}
-              placeholder="Describe your research background, preferred methodologies, and any specific requirements..."
+              placeholder="Describe the supervisor's background that you desire, e.g. having research in a particular country."
               class="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground ring-offset-background transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
             <p
