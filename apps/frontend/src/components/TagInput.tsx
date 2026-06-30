@@ -118,12 +118,12 @@ export default function TagInput(props: TagInputProps): JSX.Element {
         <For each={props.tags}>
           {(tag, index) => (
             <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-              <span>{tag}</span>
+              <span class="dark:text-foreground">{tag}</span>
               <button
                 type="button"
                 aria-label={`Remove ${tag}`}
                 onClick={() => removeTag(index())}
-                class="ml-0.5 inline-flex size-4 items-center justify-center rounded-full text-primary/70 hover:bg-primary/20 hover:text-primary focus:outline-none"
+                class="ml-0.5 inline-flex size-4 items-center justify-center rounded-full text-primary/70 hover:bg-primary/20 hover:text-primary focus:outline-none dark:text-foreground"
               >
                 &times;
               </button>

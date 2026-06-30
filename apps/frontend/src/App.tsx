@@ -187,7 +187,7 @@ export default function App(): JSX.Element {
 
             <Match when={pickSupervisorTask()?.potential_supervisors?.length}>
               <div class="rounded-md border border-border p-4">
-                <h2 class="mb-3 text-lg font-semibold text-foreground">
+                <h2 class="mb-1 text-lg font-semibold text-foreground">
                   Yeay, we found you{" "}
                   {pickSupervisorTask()!.potential_supervisors!.length}{" "}
                   supervisor
@@ -196,6 +196,10 @@ export default function App(): JSX.Element {
                     : ""}
                   :
                 </h2>
+                <p class="mb-3 text-sm text-muted-foreground">
+                  You can click the link on supervisor's name to find out more
+                  about them.
+                </p>
                 <ul class="space-y-2">
                   <For each={pickSupervisorTask()!.potential_supervisors!}>
                     {(supervisor) => (
