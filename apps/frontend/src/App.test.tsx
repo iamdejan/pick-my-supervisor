@@ -93,7 +93,7 @@ describe("App", () => {
     fireEvent.click(submitBtn);
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      "http://localhost:3000/supervisors/pick",
+      "http://127.0.0.1:8000/supervisors/pick",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
