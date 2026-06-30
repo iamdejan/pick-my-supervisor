@@ -7,12 +7,11 @@ use qdrant_client::{
         VectorParamsBuilder,
     },
 };
-use reqwest;
 use scraper::{Html, Selector};
 
-static COLLECTION_NAME: &'static str = "lecturers";
+static COLLECTION_NAME: &str = "lecturers";
 
-static LECTURER_SLUGS: &[&'static str] = &[
+static LECTURER_SLUGS: &[&str] = &[
     "narsimlu-kemsaram",
     "zati",
     "ckloo-um",
@@ -23,7 +22,7 @@ static LECTURER_SLUGS: &[&'static str] = &[
     "shahreeza",
 ];
 
-static TEMPLATE: &'static str = r#"
+static TEMPLATE: &str = r"
 # LECTURER: {}
 
 ## Biography:
@@ -31,7 +30,7 @@ static TEMPLATE: &'static str = r#"
 
 ## Area of Expertise:
 {}
-"#;
+";
 
 pub struct InsertionData {
     pub id: u64,
@@ -42,8 +41,8 @@ pub struct InsertionData {
     pub text: String,
 }
 
-fn unescape(raw_input: String) -> String {
-    raw_input
+fn unescape(raw_input: &str) -> String {
+    return raw_input
         .replace(r"\n", "\n")
         .replace(r"\t", "\t")
         .replace(r"\\", "\\")
@@ -56,10 +55,10 @@ async fn main() {
     println!("Seed is running!");
 
     let cluster_endpoint =
-        env::var("QDRANT_CLUSTER_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:6334".to_string());
-    let qdrant_api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+        env::var("QDRANT_CLUSTER_ENDPOINT").unwrap_or_else(|_| return "http://127.0.0.1:6334".to_string());
+    let qdrant_api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
     let openrouter_api_key =
-        env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+        env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
 
     let qdrant_client = Qdrant::from_url(cluster_endpoint.as_str())
         .api_key(qdrant_api_key)
@@ -86,7 +85,7 @@ async fn main() {
         let reqwest_client = reqwest::Client::builder().build().unwrap();
         let request = reqwest_client.request(
             reqwest::Method::GET,
-            format!("https://umexpert.um.edu.my/{}.html", slug).as_str(),
+            format!("https://umexpert.um.edu.my/{slug}.html").as_str(),
         );
         let response = request.send().await.unwrap();
         let body = response.text().await.unwrap();
@@ -113,7 +112,7 @@ async fn main() {
             .unwrap()
             .text()
             .collect::<Vec<_>>();
-        let biography = unescape(biography.join(""));
+        let biography = unescape(&biography.join(""));
         let biography = biography.trim();
 
         let expertise_selector =
@@ -144,10 +143,10 @@ async fn main() {
                 .collect::<Vec<_>>();
             let item = item.join("");
 
-            return format!("{}: {}", title, item);
+            return format!("{title}: {item}")
         });
         let areas_of_expertise: Vec<String> = areas_of_expertise
-            .map(|item| format!("- {}", item))
+            .map(|item| format!("- {item}"))
             .collect();
         let areas_of_expertise = areas_of_expertise.join("\n");
         let areas_of_expertise = areas_of_expertise.as_str();
@@ -165,7 +164,7 @@ async fn main() {
             biography: biography.to_string(),
             areas_of_expertise: areas_of_expertise.to_string(),
         });
-        println!("Preparing slug {} for insertion", slug);
+        println!("Preparing slug {slug} for insertion");
     }
 
     let points: Vec<PointStruct> = data_for_insertion
@@ -185,7 +184,7 @@ async fn main() {
                     options: HashMap::new(),
                 },
                 payload,
-            );
+            )
         })
         .collect();
     qdrant_client
