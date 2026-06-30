@@ -31,6 +31,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./setupVitest.ts"],
+    env: {
+      VITE_BACKEND_BASE_URL: "http://127.0.0.1:8000",
+    },
     coverage: {
       enabled: true,
       reporter: ["text", "html"],
