@@ -50,7 +50,7 @@ async function pickSupervisor(
     redirect: "follow",
   };
   const response = await fetch(
-    "http://localhost:3000/supervisors/pick",
+    `${import.meta.env["VITE_BACKEND_BASE_URL"]}/supervisors/pick`,
     requestOptions,
   );
   return response.json() as Promise<PickSupervisorResponse>;
@@ -186,22 +186,33 @@ export default function App(): JSX.Element {
             </Match>
 
             <Match when={pickSupervisorTask()?.potential_supervisors?.length}>
-              <ul class="space-y-3">
-                <For each={pickSupervisorTask()!.potential_supervisors!}>
-                  {(supervisor) => (
-                    <li>
-                      <a
-                        href={buildUmExpertUrl(supervisor.slug)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-primary underline-offset-2 hover:underline"
-                      >
-                        {supervisor.name}
-                      </a>
-                    </li>
-                  )}
-                </For>
-              </ul>
+              <div class="rounded-md border border-border p-4">
+                <h2 class="mb-3 text-lg font-semibold text-foreground">
+                  Yeay, we found you{" "}
+                  {pickSupervisorTask()!.potential_supervisors!.length}{" "}
+                  supervisor
+                  {pickSupervisorTask()!.potential_supervisors!.length !== 1
+                    ? "s"
+                    : ""}
+                  :
+                </h2>
+                <ul class="space-y-2">
+                  <For each={pickSupervisorTask()!.potential_supervisors!}>
+                    {(supervisor) => (
+                      <li>
+                        <a
+                          href={buildUmExpertUrl(supervisor.slug)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-primary underline-offset-2 hover:underline dark:text-foreground"
+                        >
+                          {supervisor.name}
+                        </a>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </div>
             </Match>
 
             <Match when={!pickSupervisorTask()?.potential_supervisors?.length}>
