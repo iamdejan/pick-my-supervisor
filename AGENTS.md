@@ -62,8 +62,6 @@ You're allowed to use skills provided in `./skills` folder, especially `rust-ski
 - Programming language: TypeScript
   - TypeScript configuration files:
     - `./apps/frontend/tsconfig.json`
-    - `./apps/frontend/tsconfig.app.json`
-    - `./apps/frontend/tsconfig.node.json`
 - Package manager: PNPM
   - Monorepo package file: `./package.json`
   - Package file: `./apps/frontend/package.json`

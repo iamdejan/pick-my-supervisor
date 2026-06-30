@@ -1,7 +1,52 @@
-import { createSignal, type JSX } from "solid-js";
+import { createResource, createSignal, type JSX } from "solid-js";
 import TagInput from "./components/TagInput";
 import ThemeToggle from "./components/ThemeToggle";
 import { createTheme } from "./lib/use-theme";
+
+type PickSupervisorRequest = {
+  interesting_topics: string[];
+  additional_text: string;
+};
+
+type PickSupervisorData = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+type PickSupervisorResponse = {
+  potential_supervisors?: PickSupervisorData[];
+};
+
+type ResourceParams = {
+  tags: string[];
+  description: string;
+};
+
+async function pickSupervisor(
+  params: ResourceParams,
+): Promise<PickSupervisorResponse> {
+  const myHeaders = new Headers();
+  myHeaders.append("Content-Type", "application/json");
+
+  const request: PickSupervisorRequest = {
+    interesting_topics: params.tags,
+    additional_text: params.description,
+  };
+  const payload = JSON.stringify(request);
+
+  const requestOptions: RequestInit = {
+    method: "POST",
+    headers: myHeaders,
+    body: payload,
+    redirect: "follow",
+  };
+  const response = await fetch(
+    "http://localhost:3000/supervisors/pick",
+    requestOptions,
+  );
+  return response.json() as Promise<PickSupervisorResponse>;
+}
 
 export default function App(): JSX.Element {
   const { theme, toggleTheme } = createTheme();
@@ -10,6 +55,14 @@ export default function App(): JSX.Element {
   const [description, setDescription] = createSignal("");
   const [charCount, setCharCount] = createSignal(0);
   const maxChars = 500;
+
+  const [pickSupervisorTask] = createResource<unknown, ResourceParams>(
+    {
+      tags: tags(),
+      description: description(),
+    },
+    pickSupervisor,
+  );
 
   /**
    * Updates the description signal and the character count whenever the

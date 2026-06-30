@@ -112,9 +112,7 @@ export default function TagInput(props: TagInputProps): JSX.Element {
       </label>
 
       <Show when={props.description}>
-        <label class="mb-1.5 block text-sm">
-          {props.description}
-        </label>
+        <label class="mb-1.5 block text-sm">{props.description}</label>
       </Show>
       <div class="flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background transition-shadow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
         <For each={props.tags}>
