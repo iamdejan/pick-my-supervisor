@@ -134,7 +134,7 @@ async fn query_qdrant_with_retry(
         return true;
     })
     .await
-    .unwrap() // All retries exhausted — let the panic propagate.
+    .unwrap(); // All retries exhausted — let the panic propagate.
 }
 
 async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Value> {
