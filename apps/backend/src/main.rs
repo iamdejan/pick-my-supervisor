@@ -18,7 +18,7 @@ struct PickSupervisorRequest {
     pub additional_text: String,
 }
 
-static COLLECTION_NAME: &'static str = "lecturers";
+static COLLECTION_NAME: &str = "lecturers";
 
 #[tokio::main]
 async fn main() {
@@ -29,33 +29,33 @@ async fn main() {
         .route("/supervisors/pick", post(pick_supervisor))
         .layer(CorsLayer::permissive()); // Allow all origins for dev
 
-    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| return "3000".to_string());
+    let host = env::var("HOST").unwrap_or_else(|_| return "127.0.0.1".to_string());
 
     let address = format!("{host}:{port}");
     let listener = tokio::net::TcpListener::bind(&address).await.unwrap();
-    println!("Listening on http://{}", address);
+    println!("Listening on http://{address}");
     axum::serve(listener, app).await.unwrap();
 }
 
 async fn health_check() -> Json<Value> {
-    Json(json!({"status": "ok", "message": "Axum backend is running!"}))
+    return Json(json!({"status": "ok", "message": "Axum backend is running!"}));
 }
 
 fn extract_u64_from_point_id(point_id: &PointId) -> Option<u64> {
     match &point_id.point_id_options {
         // Matches if the PointId is a u64 number
-        Some(PointIdOptions::Num(num)) => Some(*num),
+        Some(PointIdOptions::Num(num)) => return Some(*num),
 
         // Return None if the PointId is a UUID string
-        Some(PointIdOptions::Uuid(_uuid)) => None,
+        Some(PointIdOptions::Uuid(_uuid)) => return None,
 
         // Return None if the PointId is empty
-        None => None,
+        None => return None,
     }
 }
 
-static TEMPLATE: &'static str = r#"
+static TEMPLATE: &str = r"
 Area of interest:
 {}
 
@@ -63,13 +63,13 @@ Additional text:
 {}
 
 Based on the given information, who is the most suitable supervisor?
-"#;
+";
 
 async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Value> {
     let interesting_topics_str: Vec<String> = payload
         .interesting_topics
         .iter()
-        .map(|item| format!("- {}", item))
+        .map(|item| format!("- {item}"))
         .collect();
     let interesting_topics_str = interesting_topics_str.join("\n");
     let interesting_topics_str = interesting_topics_str.as_str();
@@ -79,11 +79,12 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
         1,
     );
 
-    let cluster_endpoint =
-        env::var("QDRANT_CLUSTER_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:6334".to_string());
-    let qdrant_api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+    let cluster_endpoint = env::var("QDRANT_CLUSTER_ENDPOINT")
+        .unwrap_or_else(|_| return "http://127.0.0.1:6334".to_string());
+    let qdrant_api_key =
+        env::var("QDRANT_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
     let openrouter_api_key =
-        env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+        env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
     let qdrant_client = Qdrant::from_url(cluster_endpoint.as_str())
         .api_key(qdrant_api_key)
         .build()
@@ -93,7 +94,7 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
         .query(
             QueryPointsBuilder::new(COLLECTION_NAME)
                 .query(Query::new_nearest(Document {
-                    text: text,
+                    text,
                     model: "openrouter/qwen/qwen3-embedding-8b".into(),
                     options: HashMap::new(),
                 }))

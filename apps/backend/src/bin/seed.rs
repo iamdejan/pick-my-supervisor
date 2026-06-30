@@ -7,12 +7,11 @@ use qdrant_client::{
         VectorParamsBuilder,
     },
 };
-use reqwest;
 use scraper::{Html, Selector};
 
-static COLLECTION_NAME: &'static str = "lecturers";
+static COLLECTION_NAME: &str = "lecturers";
 
-static LECTURER_SLUGS: &[&'static str] = &[
+static LECTURER_SLUGS: &[&str] = &[
     "narsimlu-kemsaram",
     "zati",
     "ckloo-um",
@@ -23,7 +22,7 @@ static LECTURER_SLUGS: &[&'static str] = &[
     "shahreeza",
 ];
 
-static TEMPLATE: &'static str = r#"
+static TEMPLATE: &str = r"
 # LECTURER: {}
 
 ## Biography:
@@ -31,7 +30,7 @@ static TEMPLATE: &'static str = r#"
 
 ## Area of Expertise:
 {}
-"#;
+";
 
 pub struct InsertionData {
     pub id: u64,
@@ -42,11 +41,78 @@ pub struct InsertionData {
     pub text: String,
 }
 
-fn unescape(raw_input: String) -> String {
-    raw_input
+fn unescape(raw_input: &str) -> String {
+    return raw_input
         .replace(r"\n", "\n")
         .replace(r"\t", "\t")
-        .replace(r"\\", "\\")
+        .replace(r"\\", "\\");
+}
+
+fn get_name(document: &Html) -> String {
+    let name_selector =
+        Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
+            .unwrap();
+    let name = document
+        .select(&name_selector)
+        .next()
+        .unwrap()
+        .text()
+        .collect::<Vec<_>>()[0]
+        .trim();
+    return name.to_owned();
+}
+
+fn get_biography(document: &Html) -> String {
+    let biography_selector = Selector::parse(
+        "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
+    )
+    .unwrap();
+    let biography = document
+        .select(&biography_selector)
+        .next()
+        .unwrap()
+        .text()
+        .collect::<Vec<_>>();
+    let biography = unescape(&biography.join(""));
+    let biography = biography.trim();
+    return biography.to_owned();
+}
+
+fn get_areas_of_expertise(document: &Html) -> String {
+    let expertise_selector =
+        Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
+            .unwrap();
+    let expertise_title_selector = Selector::parse(
+        "body > article > div > div.resume-body > section > div > ul > li > div.resume-degree",
+    )
+    .unwrap();
+    let expertise_item_selector = Selector::parse(
+        "body > article > div > div.resume-body > section > div > ul > li > div.area-item",
+    )
+    .unwrap();
+
+    let areas_of_expertise = document.select(&expertise_selector).map(|element| {
+        let title = element
+            .select(&expertise_title_selector)
+            .next()
+            .unwrap()
+            .text()
+            .collect::<Vec<_>>();
+        let title = title.join("");
+
+        let item = element
+            .select(&expertise_item_selector)
+            .next()
+            .unwrap()
+            .text()
+            .collect::<Vec<_>>();
+        let item = item.join("");
+
+        return format!("{title}: {item}");
+    });
+    let areas_of_expertise: Vec<String> =
+        areas_of_expertise.map(|item| format!("- {item}")).collect();
+    return areas_of_expertise.join("\n");
 }
 
 #[tokio::main]
@@ -55,11 +121,12 @@ async fn main() {
 
     println!("Seed is running!");
 
-    let cluster_endpoint =
-        env::var("QDRANT_CLUSTER_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:6334".to_string());
-    let qdrant_api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+    let cluster_endpoint = env::var("QDRANT_CLUSTER_ENDPOINT")
+        .unwrap_or_else(|_| return "http://127.0.0.1:6334".to_string());
+    let qdrant_api_key =
+        env::var("QDRANT_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
     let openrouter_api_key =
-        env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| "not_needed".to_string());
+        env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
 
     let qdrant_client = Qdrant::from_url(cluster_endpoint.as_str())
         .api_key(qdrant_api_key)
@@ -86,86 +153,31 @@ async fn main() {
         let reqwest_client = reqwest::Client::builder().build().unwrap();
         let request = reqwest_client.request(
             reqwest::Method::GET,
-            format!("https://umexpert.um.edu.my/{}.html", slug).as_str(),
+            format!("https://umexpert.um.edu.my/{slug}.html").as_str(),
         );
         let response = request.send().await.unwrap();
         let body = response.text().await.unwrap();
         let body = body.trim();
         let document = Html::parse_document(body);
-        let name_selector =
-            Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
-                .unwrap();
-        let name = document
-            .select(&name_selector)
-            .next()
-            .unwrap()
-            .text()
-            .collect::<Vec<_>>()[0]
-            .trim();
 
-        let biography_selector = Selector::parse(
-            "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
-        )
-        .unwrap();
-        let biography = document
-            .select(&biography_selector)
-            .next()
-            .unwrap()
-            .text()
-            .collect::<Vec<_>>();
-        let biography = unescape(biography.join(""));
-        let biography = biography.trim();
+        let name = get_name(&document);
+        let biography = get_biography(&document);
+        let areas_of_expertise = get_areas_of_expertise(&document);
 
-        let expertise_selector =
-            Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
-                .unwrap();
-        let expertise_title_selector = Selector::parse(
-            "body > article > div > div.resume-body > section > div > ul > li > div.resume-degree",
-        )
-        .unwrap();
-        let expertise_item_selector = Selector::parse(
-            "body > article > div > div.resume-body > section > div > ul > li > div.area-item",
-        )
-        .unwrap();
-        let areas_of_expertise = document.select(&expertise_selector).map(|element| {
-            let title = element
-                .select(&expertise_title_selector)
-                .next()
-                .unwrap()
-                .text()
-                .collect::<Vec<_>>();
-            let title = title.join("");
-
-            let item = element
-                .select(&expertise_item_selector)
-                .next()
-                .unwrap()
-                .text()
-                .collect::<Vec<_>>();
-            let item = item.join("");
-
-            return format!("{}: {}", title, item);
-        });
-        let areas_of_expertise: Vec<String> = areas_of_expertise
-            .map(|item| format!("- {}", item))
-            .collect();
-        let areas_of_expertise = areas_of_expertise.join("\n");
-        let areas_of_expertise = areas_of_expertise.as_str();
-
-        let markdown = TEMPLATE
-            .replacen("{}", name, 1)
-            .replacen("{}", biography, 1)
-            .replacen("{}", areas_of_expertise, 1);
+        let text = TEMPLATE
+            .replacen("{}", name.as_str(), 1)
+            .replacen("{}", biography.as_str(), 1)
+            .replacen("{}", areas_of_expertise.as_str(), 1);
 
         data_for_insertion.push(InsertionData {
             id: i as u64,
             slug: slug.into(),
-            text: markdown,
-            name: name.to_string(),
-            biography: biography.to_string(),
-            areas_of_expertise: areas_of_expertise.to_string(),
+            text,
+            name,
+            biography,
+            areas_of_expertise,
         });
-        println!("Preparing slug {} for insertion", slug);
+        println!("Preparing slug {slug} for insertion");
     }
 
     let points: Vec<PointStruct> = data_for_insertion

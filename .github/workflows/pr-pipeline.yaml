@@ -1,0 +1,55 @@
+name: PR Pipeline
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  backend:
+    strategy:
+      matrix:
+        os: ['ubuntu-slim']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v7
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-fmt
+        run: rustup component add rustfmt
+      - name: Run cargo fmt
+        run: cargo fmt --check
+        working-directory: apps/backend
+      - name: Install cargo-clippy
+        run: rustup component add clippy
+      - name: Run cargo clippy
+        run: cargo clippy -- -D warnings
+        working-directory: apps/backend
+      - name: Run cargo test
+        run: cargo test
+        working-directory: apps/backend
+
+  frontend:
+    strategy:
+      matrix:
+        os: ['ubuntu-slim']
+        node_version: ['24.18.0']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node_version }}
+          check-latest: false
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+      - name: Install PNPM
+        run: npm install --global pnpm@11.9.0
+      - name: Install dependencies
+        run: pnpm install
+      - name: Check Typings
+        run: pnpm --filter frontend run type:check
+      - name: Run lint
+        run: pnpm --filter frontend run lint
+      - name: Run test
+        run: pnpm --filter frontend run test:ci
