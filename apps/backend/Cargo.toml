@@ -24,6 +24,7 @@ name = "seed"
 path = "src/bin/seed.rs"
 
 [dependencies]
+backon = { version = "1", features = ["tokio-sleep"] }
 axum = "0.7"
 dotenvy = "0.15.7"
 qdrant-client = "1.18.0"
