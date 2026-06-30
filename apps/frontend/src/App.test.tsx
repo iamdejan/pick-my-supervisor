@@ -34,7 +34,7 @@ describe("App", () => {
   it("renders the textarea with 500 character limit", () => {
     render(() => <App />);
     const textarea = screen.getByPlaceholderText(
-      "Describe your research background, preferred methodologies, and any specific requirements...",
+      "Describe the supervisor's background that you desire, e.g. having research in a particular country.",
     );
     expect(textarea).toBeInTheDocument();
     expect(textarea).toHaveAttribute("maxLength", "500");
@@ -48,7 +48,7 @@ describe("App", () => {
   it("updates character count when typing in the textarea", () => {
     render(() => <App />);
     const textarea = screen.getByPlaceholderText(
-      "Describe your research background, preferred methodologies, and any specific requirements...",
+      "Describe the supervisor's background that you desire, e.g. having research in a particular country.",
     );
     fireEvent.input(textarea, {
       target: { value: "Hello World" },
@@ -66,7 +66,7 @@ describe("App", () => {
     render(() => <App />);
 
     const textarea = screen.getByPlaceholderText(
-      "Describe your research background, preferred methodologies, and any specific requirements...",
+      "Describe the supervisor's background that you desire, e.g. having research in a particular country.",
     );
     fireEvent.input(textarea, {
       target: { value: "Looking for an ML expert" },
