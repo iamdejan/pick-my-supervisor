@@ -48,6 +48,75 @@ fn unescape(raw_input: &str) -> String {
         .replace(r"\\", "\\")
 }
 
+fn get_name(document: &Html) -> String {
+    let name_selector =
+            Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
+                .unwrap();
+    let name = document
+        .select(&name_selector)
+        .next()
+        .unwrap()
+        .text()
+        .collect::<Vec<_>>()[0]
+        .trim();
+    return name.to_owned();
+}
+
+fn get_biography(document: &Html) -> String {
+    let biography_selector = Selector::parse(
+            "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
+        )
+        .unwrap();
+    let biography = document
+        .select(&biography_selector)
+        .next()
+        .unwrap()
+        .text()
+        .collect::<Vec<_>>();
+    let biography = unescape(&biography.join(""));
+    let biography = biography.trim();
+    return biography.to_owned();
+}
+
+fn get_areas_of_expertise(document: &Html) -> String {
+    let expertise_selector =
+            Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
+                .unwrap();
+    let expertise_title_selector = Selector::parse(
+        "body > article > div > div.resume-body > section > div > ul > li > div.resume-degree",
+    )
+    .unwrap();
+    let expertise_item_selector = Selector::parse(
+        "body > article > div > div.resume-body > section > div > ul > li > div.area-item",
+    )
+    .unwrap();
+
+    let areas_of_expertise = document.select(&expertise_selector).map(|element| {
+        let title = element
+            .select(&expertise_title_selector)
+            .next()
+            .unwrap()
+            .text()
+            .collect::<Vec<_>>();
+        let title = title.join("");
+
+        let item = element
+            .select(&expertise_item_selector)
+            .next()
+            .unwrap()
+            .text()
+            .collect::<Vec<_>>();
+        let item = item.join("");
+
+        return format!("{title}: {item}")
+    });
+    let areas_of_expertise: Vec<String> = areas_of_expertise
+        .map(|item| format!("- {item}"))
+        .collect();
+    return areas_of_expertise.join("\n");
+
+}
+
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().unwrap();
@@ -91,78 +160,23 @@ async fn main() {
         let body = response.text().await.unwrap();
         let body = body.trim();
         let document = Html::parse_document(body);
-        let name_selector =
-            Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
-                .unwrap();
-        let name = document
-            .select(&name_selector)
-            .next()
-            .unwrap()
-            .text()
-            .collect::<Vec<_>>()[0]
-            .trim();
 
-        let biography_selector = Selector::parse(
-            "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
-        )
-        .unwrap();
-        let biography = document
-            .select(&biography_selector)
-            .next()
-            .unwrap()
-            .text()
-            .collect::<Vec<_>>();
-        let biography = unescape(&biography.join(""));
-        let biography = biography.trim();
+        let name = get_name(&document);
+        let biography = get_biography(&document);
+        let areas_of_expertise = get_areas_of_expertise(&document);
 
-        let expertise_selector =
-            Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
-                .unwrap();
-        let expertise_title_selector = Selector::parse(
-            "body > article > div > div.resume-body > section > div > ul > li > div.resume-degree",
-        )
-        .unwrap();
-        let expertise_item_selector = Selector::parse(
-            "body > article > div > div.resume-body > section > div > ul > li > div.area-item",
-        )
-        .unwrap();
-        let areas_of_expertise = document.select(&expertise_selector).map(|element| {
-            let title = element
-                .select(&expertise_title_selector)
-                .next()
-                .unwrap()
-                .text()
-                .collect::<Vec<_>>();
-            let title = title.join("");
-
-            let item = element
-                .select(&expertise_item_selector)
-                .next()
-                .unwrap()
-                .text()
-                .collect::<Vec<_>>();
-            let item = item.join("");
-
-            return format!("{title}: {item}")
-        });
-        let areas_of_expertise: Vec<String> = areas_of_expertise
-            .map(|item| format!("- {item}"))
-            .collect();
-        let areas_of_expertise = areas_of_expertise.join("\n");
-        let areas_of_expertise = areas_of_expertise.as_str();
-
-        let markdown = TEMPLATE
-            .replacen("{}", name, 1)
-            .replacen("{}", biography, 1)
-            .replacen("{}", areas_of_expertise, 1);
+        let text = TEMPLATE
+            .replacen("{}", name.as_str(), 1)
+            .replacen("{}", biography.as_str(), 1)
+            .replacen("{}", areas_of_expertise.as_str(), 1);
 
         data_for_insertion.push(InsertionData {
             id: i as u64,
             slug: slug.into(),
-            text: markdown,
-            name: name.to_string(),
-            biography: biography.to_string(),
-            areas_of_expertise: areas_of_expertise.to_string(),
+            text,
+            name,
+            biography,
+            areas_of_expertise,
         });
         println!("Preparing slug {slug} for insertion");
     }

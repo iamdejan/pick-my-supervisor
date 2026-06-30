@@ -11,6 +11,7 @@ dead-code = "warn"
 [lints.clippy]
 needless_return = "allow"
 implicit_return = "forbid"
+pedantic = { level = "deny", priority = -1 }
 print_stdout = "allow"
 trivially_copy_pass_by_ref = "allow"
 
