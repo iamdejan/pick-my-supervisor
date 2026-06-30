@@ -61,8 +61,25 @@ describe("App", () => {
     expect(screen.getByText("Find My Supervisor")).toBeInTheDocument();
   });
 
-  it("logs form data on submit", () => {
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  it("renders the submit button and it is not disabled initially", () => {
+    render(() => <App />);
+    const submitBtn = screen.getByText("Find My Supervisor");
+    expect(submitBtn).toBeInTheDocument();
+    expect(submitBtn).not.toBeDisabled();
+  });
+
+  it("calls the API on form submit and displays results", async () => {
+    const mockResponse = {
+      potential_supervisors: [
+        { id: 1, name: "DR. ZATI HAKIM BINTI AZIZUL HASAN", slug: "zati" },
+        { id: 0, name: "DR. NARSIMLU KEMSARAM", slug: "narsimlu-kemsaram" },
+      ],
+    };
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve(mockResponse),
+    });
+
     render(() => <App />);
 
     const textarea = screen.getByPlaceholderText(
@@ -75,11 +92,74 @@ describe("App", () => {
     const submitBtn = screen.getByText("Find My Supervisor");
     fireEvent.click(submitBtn);
 
-    expect(logSpy).toHaveBeenCalledWith("Form submitted:", {
-      interests: [],
-      description: "Looking for an ML expert",
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://localhost:3000/supervisors/pick",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          interesting_topics: [],
+          additional_text: "Looking for an ML expert",
+        }),
+      }),
+    );
+
+    expect(
+      await screen.findByText("DR. NARSIMLU KEMSARAM"),
+    ).toBeInTheDocument();
+
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute(
+      "href",
+      "https://umexpert.um.edu.my/zati.html",
+    );
+    expect(links[1]).toHaveAttribute(
+      "href",
+      "https://umexpert.um.edu.my/narsimlu-kemsaram.html",
+    );
+  });
+
+  it("shows error message when the API call fails", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Network error"));
+
+    render(() => <App />);
+
+    const submitBtn = screen.getByText("Find My Supervisor");
+    fireEvent.click(submitBtn);
+
+    expect(
+      await screen.findByText(
+        "Something went wrong while fetching supervisors. Please try again.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows empty message when no supervisors are returned", async () => {
+    const mockResponse = { potential_supervisors: [] };
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve(mockResponse),
     });
-    logSpy.mockRestore();
+
+    render(() => <App />);
+
+    const textarea = screen.getByPlaceholderText(
+      "Describe the supervisor's background that you desire, e.g. having research in a particular country.",
+    );
+    fireEvent.input(textarea, {
+      target: { value: "Looking for an ML expert" },
+    });
+
+    const submitBtn = screen.getByText("Find My Supervisor");
+    fireEvent.click(submitBtn);
+
+    expect(
+      await screen.findByText(
+        "No matching supervisors found. Try adjusting your interests or description.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("toggles theme when the toggle button is clicked", () => {
