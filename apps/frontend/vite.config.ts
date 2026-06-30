@@ -11,12 +11,6 @@ export default defineConfig({
   plugins: [
     solidPlugin(),
     checker({
-      eslint: {
-        lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
-        dev: {
-          logLevel: ["error"],
-        },
-      },
       enableBuild: true,
     }),
   ],
