@@ -39,7 +39,7 @@ async fn main() {
 }
 
 async fn health_check() -> Json<Value> {
-    return Json(json!({"status": "ok", "message": "Axum backend is running!"}))
+    return Json(json!({"status": "ok", "message": "Axum backend is running!"}));
 }
 
 fn extract_u64_from_point_id(point_id: &PointId) -> Option<u64> {
@@ -79,9 +79,10 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
         1,
     );
 
-    let cluster_endpoint =
-        env::var("QDRANT_CLUSTER_ENDPOINT").unwrap_or_else(|_| return "http://127.0.0.1:6334".to_string());
-    let qdrant_api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
+    let cluster_endpoint = env::var("QDRANT_CLUSTER_ENDPOINT")
+        .unwrap_or_else(|_| return "http://127.0.0.1:6334".to_string());
+    let qdrant_api_key =
+        env::var("QDRANT_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
     let openrouter_api_key =
         env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
     let qdrant_client = Qdrant::from_url(cluster_endpoint.as_str())
@@ -112,8 +113,8 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
                 "id": extract_u64_from_point_id(&item_id).unwrap(),
                 "name": &item.payload.get("name").unwrap(),
                 "slug": &item.payload.get("slug").unwrap(),
-            })
+            });
         })
         .collect();
-    return Json(json!({"potential_supervisors": results}))
+    return Json(json!({"potential_supervisors": results}));
 }

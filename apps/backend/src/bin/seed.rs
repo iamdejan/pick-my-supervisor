@@ -45,13 +45,13 @@ fn unescape(raw_input: &str) -> String {
     return raw_input
         .replace(r"\n", "\n")
         .replace(r"\t", "\t")
-        .replace(r"\\", "\\")
+        .replace(r"\\", "\\");
 }
 
 fn get_name(document: &Html) -> String {
     let name_selector =
-            Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
-                .unwrap();
+        Selector::parse("#personaldetails > div > div.profile-main > div.prof-name-row > div")
+            .unwrap();
     let name = document
         .select(&name_selector)
         .next()
@@ -64,9 +64,9 @@ fn get_name(document: &Html) -> String {
 
 fn get_biography(document: &Html) -> String {
     let biography_selector = Selector::parse(
-            "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
-        )
-        .unwrap();
+        "body > article > div > div.resume-body > div.row.cv-module-content > div > div",
+    )
+    .unwrap();
     let biography = document
         .select(&biography_selector)
         .next()
@@ -80,8 +80,8 @@ fn get_biography(document: &Html) -> String {
 
 fn get_areas_of_expertise(document: &Html) -> String {
     let expertise_selector =
-            Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
-                .unwrap();
+        Selector::parse("body > article > div > div.resume-body > section > div > ul > li")
+            .unwrap();
     let expertise_title_selector = Selector::parse(
         "body > article > div > div.resume-body > section > div > ul > li > div.resume-degree",
     )
@@ -108,13 +108,11 @@ fn get_areas_of_expertise(document: &Html) -> String {
             .collect::<Vec<_>>();
         let item = item.join("");
 
-        return format!("{title}: {item}")
+        return format!("{title}: {item}");
     });
-    let areas_of_expertise: Vec<String> = areas_of_expertise
-        .map(|item| format!("- {item}"))
-        .collect();
+    let areas_of_expertise: Vec<String> =
+        areas_of_expertise.map(|item| format!("- {item}")).collect();
     return areas_of_expertise.join("\n");
-
 }
 
 #[tokio::main]
@@ -123,9 +121,10 @@ async fn main() {
 
     println!("Seed is running!");
 
-    let cluster_endpoint =
-        env::var("QDRANT_CLUSTER_ENDPOINT").unwrap_or_else(|_| return "http://127.0.0.1:6334".to_string());
-    let qdrant_api_key = env::var("QDRANT_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
+    let cluster_endpoint = env::var("QDRANT_CLUSTER_ENDPOINT")
+        .unwrap_or_else(|_| return "http://127.0.0.1:6334".to_string());
+    let qdrant_api_key =
+        env::var("QDRANT_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
     let openrouter_api_key =
         env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
 
@@ -198,7 +197,7 @@ async fn main() {
                     options: HashMap::new(),
                 },
                 payload,
-            )
+            );
         })
         .collect();
     qdrant_client
