@@ -31,7 +31,6 @@ After generating the code, make sure you validate the code you generated.
 
 Run these commands in sequence:
 1. `cargo fmt`: format your code. This ensures that the code written by human and by you (coding agent) are consistent, following the style that Rust has provided.
-2.
 2. `cargo clippy -- -D warnings`: ensure no linter errors.
 3. `cargo clippy --fix --allow-dirty`: if there is any linter error, fix it with this command.
 4. `cargo clippy -- -D warnings`: recheck again, maybe there are linter errors that need manual fix.
