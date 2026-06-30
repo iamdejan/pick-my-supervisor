@@ -6,6 +6,7 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
+    "deps": "pnpm install",
     "deps:update": "pnpm install && pnpm update --latest",
     "type:check": "tsc -b",
     "build": "tsc -b && vite build",
