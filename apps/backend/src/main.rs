@@ -172,7 +172,6 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Pic
     // so intermittent timeouts on the free plan are retried automatically.
     let query_response = query_qdrant_with_retry(&qdrant_client, &openrouter_api_key, &text).await;
 
-    // TODO dejan: Add LLM-based reranking after Qdrant retrieval
     let context: Vec<_> = query_response
         .result
         .iter()
