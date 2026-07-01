@@ -80,13 +80,13 @@ static NEAREST_VECTOR_QUERY_TEMPLATE: &str = r"
 {interesting_topics}
 ";
 
-static QUERY_PROMPT_TEMPLATE: &str = r#"
+static QUERY_PROMPT_TEMPLATE: &str = r"
 Context: {context}
 
 Query: Which lecturer, based on the context alone, should be my research supervsior? STRICTLY return TWO of the most promising results following the format from this JSON schema: {response_schema}. The length of `potential_supervisors` should be 2, meaning return 2 of of most promising results.
 
 Do not hallucinate, and do not make any mistake. I believe in you.
-"#;
+";
 
 /// Queries the Qdrant database to find the nearest points matching the given
 /// text, with exponential backoff retry on failure.
@@ -159,7 +159,9 @@ async fn query_qdrant_with_retry(
     .unwrap(); // All retries exhausted — let the panic propagate.
 }
 
-async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<PickSupervisorResponse> {
+async fn pick_supervisor(
+    Json(payload): Json<PickSupervisorRequest>,
+) -> Json<PickSupervisorResponse> {
     let interesting_topics_str: Vec<String> = payload
         .interesting_topics
         .iter()
@@ -251,7 +253,8 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Pic
         .header("Authorization", format!("Bearer {openrouter_api_key}"))
         .json(&request_body);
     let response = request.send().await.unwrap();
-    let response_body: ChatCompletionResponse = response.json().await.unwrap();
+    let raw_text = response.text().await.unwrap();
+    let response_body: ChatCompletionResponse = serde_json::from_str(&raw_text).unwrap();
     let raw_message_content = &response_body.choices[0].message.content;
 
     let response: PickSupervisorResponse = serde_json::from_str(raw_message_content).unwrap();

@@ -98,7 +98,7 @@ fn get_areas_of_expertise(document: &Html) -> String {
             .next()
             .unwrap()
             .text()
-            .map(|item| item.trim())
+            .map(|item| return item.trim())
             .collect::<Vec<_>>();
         let title = title.join("").trim().to_string();
 
@@ -107,7 +107,7 @@ fn get_areas_of_expertise(document: &Html) -> String {
             .next()
             .unwrap()
             .text()
-            .map(|item| item.trim())
+            .map(|item| return item.trim())
             .collect::<Vec<_>>();
         let item = item.join("").trim().to_string();
 
