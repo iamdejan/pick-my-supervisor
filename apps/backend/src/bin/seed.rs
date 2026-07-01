@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, time::Duration};
 
 use qdrant_client::{
     Payload, Qdrant,
@@ -20,6 +20,7 @@ static LECTURER_SLUGS: &[&str] = &[
     "cs-chan",
     "cswoo",
     "shahreeza",
+    "fidah",
 ];
 
 static TEMPLATE: &str = r"
@@ -97,16 +98,18 @@ fn get_areas_of_expertise(document: &Html) -> String {
             .next()
             .unwrap()
             .text()
+            .map(|item| return item.trim())
             .collect::<Vec<_>>();
-        let title = title.join("");
+        let title = title.join("").trim().to_string();
 
         let item = element
             .select(&expertise_item_selector)
             .next()
             .unwrap()
             .text()
+            .map(|item| return item.trim())
             .collect::<Vec<_>>();
-        let item = item.join("");
+        let item = item.join("").trim().to_string();
 
         return format!("{title}: {item}");
     });
@@ -130,6 +133,7 @@ async fn main() {
 
     let qdrant_client = Qdrant::from_url(cluster_endpoint.as_str())
         .api_key(qdrant_api_key)
+        .timeout(Duration::from_secs(30))
         .build()
         .unwrap();
     let collection_exist = qdrant_client
@@ -172,7 +176,7 @@ async fn main() {
         data_for_insertion.push(InsertionData {
             id: i as u64,
             slug: slug.into(),
-            text,
+            text: text.trim().to_string(),
             name,
             biography,
             areas_of_expertise,
@@ -188,6 +192,7 @@ async fn main() {
             payload.insert("name", p.name.clone());
             payload.insert("biography", p.biography.clone());
             payload.insert("areas_of_expertise", p.areas_of_expertise.clone());
+            payload.insert("text", p.text.clone());
 
             return PointStruct::new(
                 p.id,
