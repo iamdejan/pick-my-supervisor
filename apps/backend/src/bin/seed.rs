@@ -20,7 +20,7 @@ static LECTURER_SLUGS: &[&str] = &[
     "cs-chan",
     "cswoo",
     "shahreeza",
-    "fidah"
+    "fidah",
 ];
 
 static TEMPLATE: &str = r"
@@ -189,6 +189,7 @@ async fn main() {
             payload.insert("name", p.name.clone());
             payload.insert("biography", p.biography.clone());
             payload.insert("areas_of_expertise", p.areas_of_expertise.clone());
+            payload.insert("text", p.text.clone());
 
             return PointStruct::new(
                 p.id,

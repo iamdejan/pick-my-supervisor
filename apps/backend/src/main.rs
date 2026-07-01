@@ -7,7 +7,7 @@ use axum::{
 use backon::{ExponentialBuilder, Retryable};
 use qdrant_client::{
     Qdrant,
-    qdrant::{Document, PointId, Query, QueryPointsBuilder, point_id::PointIdOptions},
+    qdrant::{Document, Query, QueryPointsBuilder},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -17,6 +17,17 @@ use tower_http::cors::CorsLayer;
 struct PickSupervisorRequest {
     pub interesting_topics: Vec<String>,
     pub additional_text: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PickSupervisorData {
+    pub name: String,
+    pub slug: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PickSupervisorResponse {
+    pub potential_supervisors: Vec<PickSupervisorData>,
 }
 
 static COLLECTION_NAME: &str = "lecturers";
@@ -43,20 +54,7 @@ async fn health_check() -> Json<Value> {
     return Json(json!({"status": "ok", "message": "Axum backend is running!"}));
 }
 
-fn extract_u64_from_point_id(point_id: &PointId) -> Option<u64> {
-    match &point_id.point_id_options {
-        // Matches if the PointId is a u64 number
-        Some(PointIdOptions::Num(num)) => return Some(*num),
-
-        // Return None if the PointId is a UUID string
-        Some(PointIdOptions::Uuid(_uuid)) => return None,
-
-        // Return None if the PointId is empty
-        None => return None,
-    }
-}
-
-static TEMPLATE: &str = r"
+static NEAREST_VECTOR_QUERY_TEMPLATE: &str = r"
 # STUDENT
 
 ## Biography:
@@ -65,6 +63,14 @@ static TEMPLATE: &str = r"
 ## Area of Expertise (seeking):
 {interesting_topics}
 ";
+
+static QUERY_PROMPT_TEMPLATE: &str = r#"
+Context: {context}
+
+Query: Which lecturer, based on the context alone, should be my research supervsior? STRICTLY return TWO of the most promising results following the format from this JSON schema: {response_schema}. The length of `potential_supervisors` should be 2, meaning return 2 of of most promising results.
+
+Do not hallucinate, and do not make any mistake. I believe in you.
+"#;
 
 /// Queries the Qdrant database to find the nearest points matching the given
 /// text, with exponential backoff retry on failure.
@@ -119,7 +125,7 @@ async fn query_qdrant_with_retry(
                             model: "openrouter/qwen/qwen3-embedding-8b".into(),
                             options: HashMap::new(),
                         }))
-                        .limit(2)
+                        .limit(5)
                         .with_payload(true)
                         .build(),
                 )
@@ -137,7 +143,7 @@ async fn query_qdrant_with_retry(
     .unwrap(); // All retries exhausted — let the panic propagate.
 }
 
-async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Value> {
+async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<PickSupervisorResponse> {
     let interesting_topics_str: Vec<String> = payload
         .interesting_topics
         .iter()
@@ -145,16 +151,16 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
         .collect();
     let interesting_topics_str = interesting_topics_str.join("\n");
     let interesting_topics_str = interesting_topics_str.as_str();
-    let text = TEMPLATE.replacen("{interesting_topics}", interesting_topics_str, 1).replacen(
-        "{additional_text}",
-        payload.additional_text.as_str(),
-        1,
-    );
+    let text = NEAREST_VECTOR_QUERY_TEMPLATE
+        .replacen("{interesting_topics}", interesting_topics_str, 1)
+        .replacen("{additional_text}", payload.additional_text.as_str(), 1);
 
     let cluster_endpoint = env::var("QDRANT_CLUSTER_ENDPOINT")
         .unwrap_or_else(|_| return "http://127.0.0.1:6334".to_string());
     let qdrant_api_key =
         env::var("QDRANT_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
+    let openrouter_base_url =
+        env::var("OPENROUTER_BASE_URL").unwrap_or_else(|_| return "not_needed".to_string());
     let openrouter_api_key =
         env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
     // Build the Qdrant client once — this should never fail transiently.
@@ -165,19 +171,73 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
     // The actual query is wrapped with exponential backoff via `backon`
     // so intermittent timeouts on the free plan are retried automatically.
     let query_response = query_qdrant_with_retry(&qdrant_client, &openrouter_api_key, &text).await;
-    let results: Vec<Value> = query_response
+
+    // TODO dejan: Add LLM-based reranking after Qdrant retrieval
+    let context: Vec<_> = query_response
         .result
         .iter()
         .map(|item| {
-            let item_id = item.to_owned().id.unwrap();
-            return json!({
-                "id": extract_u64_from_point_id(&item_id).unwrap(),
-                "name": &item.payload.get("name").unwrap(),
-                "slug": &item.payload.get("slug").unwrap(),
-            });
+            return item.payload.get("text").unwrap().to_string();
         })
         .collect();
-    return Json(json!({"potential_supervisors": results}));
+    let context = context.join("\n\n");
+
+    let response_schema = json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "potential_supervisors": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "slug": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "name",
+                        "slug"
+                    ]
+                }
+            }
+        }
+    });
+    let query_prompt = QUERY_PROMPT_TEMPLATE
+        .replacen("{context}", context.as_str(), 1)
+        .replacen(
+            "{response_schema}",
+            serde_json::to_string(&response_schema).unwrap().as_str(),
+            1,
+        );
+    let request_body = json!({
+        "model": "deepseek/deepseek-v4-flash",
+        "messages": [
+            {
+                "role": "system",
+                "content": "Answer based only on given context. Do not search the internet or make any tool calls."
+            },
+            {
+                "role": "user",
+                "content": query_prompt
+            }
+        ],
+        "response_format": response_schema
+    });
+    let reqwest_client = reqwest::Client::builder().build().unwrap();
+    let request = reqwest_client
+        .request(
+            reqwest::Method::POST,
+            format!("{openrouter_base_url}/chat/completions"),
+        )
+        .header("Authorization", format!("Bearer {openrouter_api_key}"))
+        .json(&request_body);
+    let response = request.send().await.unwrap();
+    let response_body: PickSupervisorResponse = response.json().await.unwrap();
+    return Json(response_body);
 }
 
 #[cfg(test)]

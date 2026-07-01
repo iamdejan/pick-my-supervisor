@@ -71,8 +71,8 @@ describe("App", () => {
   it("calls the API on form submit and displays results", async () => {
     const mockResponse = {
       potential_supervisors: [
-        { id: 1, name: "DR. ZATI HAKIM BINTI AZIZUL HASAN", slug: "zati" },
-        { id: 0, name: "DR. NARSIMLU KEMSARAM", slug: "narsimlu-kemsaram" },
+        { name: "DR. ZATI HAKIM BINTI AZIZUL HASAN", slug: "zati" },
+        { name: "DR. NARSIMLU KEMSARAM", slug: "narsimlu-kemsaram" },
       ],
     };
 
