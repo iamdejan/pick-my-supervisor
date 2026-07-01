@@ -2,6 +2,8 @@ use std::{collections::HashMap, env};
 
 use axum::{
     Json, Router,
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use backon::{ExponentialBuilder, Retryable};
@@ -46,6 +48,110 @@ struct ChatCompletionResponse {
     pub choices: Vec<ChatCompletionChoice>,
 }
 
+/// Represents an error payload returned by the `OpenRouter` API when a request
+/// fails with a non-2xx status code. The `metadata` field captures additional
+/// provider-specific information such as the raw upstream error body.
+#[derive(Serialize, Deserialize)]
+struct OpenRouterError {
+    pub message: String,
+    pub code: i32,
+    #[serde(default)]
+    pub metadata: Option<Value>,
+}
+
+/// Top-level error envelope returned by `OpenRouter` on non-2xx responses.
+#[derive(Serialize, Deserialize)]
+struct OpenRouterErrorResponse {
+    pub error: OpenRouterError,
+}
+
+/// Aggregates all possible error modes the `pick_supervisor` handler can
+/// encounter — from external API failures to internal deserialization bugs.
+///
+/// Each variant maps to a distinct HTTP status code and a JSON error body so
+/// the frontend can programmatically distinguish between transient upstream
+/// issues and permanent client/developer errors.
+#[derive(Debug)]
+enum AppError {
+    /// The external `OpenRouter` API rejected the request or encountered an
+    /// internal failure. The wrapped status code is the upstream HTTP code.
+    OpenRouter {
+        status: StatusCode,
+        message: String,
+        code: i32,
+        metadata: Option<Value>,
+    },
+    /// A well-formed HTTP response was received but the body could not be
+    /// deserialized. This typically indicates a schema mismatch between the
+    /// server and our `ChatCompletionResponse` / `PickSupervisorResponse`
+    /// structs.
+    Deserialization { context: String, detail: String },
+    /// The LLM returned a message with zero choices, which is a provider edge
+    /// case but not a parse error.
+    EmptyChoices,
+    /// Any other internal failure with no upstream HTTP status to reflect.
+    Internal(String),
+}
+
+/// Converts every `AppError` variant into an Axum HTTP response with an
+/// appropriate status code and a JSON-encoded error payload.
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let (status, body) = match self {
+            // Forward the upstream status code along with the structured error so
+            // the client can react differently to 400 vs 429 vs 502, etc.
+            AppError::OpenRouter {
+                status,
+                message,
+                code,
+                metadata,
+            } => {
+                let mut error_body = json!({
+                    "error": {
+                        "message": message,
+                        "code": code
+                    }
+                });
+                if let Some(meta) = metadata {
+                    error_body["error"]["metadata"] = meta;
+                }
+                (status, error_body)
+            }
+            // Deserialization failures are *our* bug or a provider API change —
+            // the frontend should treat them as an internal server error.
+            AppError::Deserialization { context, detail } => {
+                let error_body = json!({
+                    "error": {
+                        "message": format!("failed to deserialize {context}: {detail}")
+                    }
+                });
+                (StatusCode::INTERNAL_SERVER_ERROR, error_body)
+            }
+            AppError::EmptyChoices => {
+                let error_body = json!({
+                    "error": {
+                        "message": "LLM returned zero choices — upstream may have blocked the response"
+                    }
+                });
+                (StatusCode::INTERNAL_SERVER_ERROR, error_body)
+            }
+            AppError::Internal(detail) => {
+                let error_body = json!({
+                    "error": {
+                        "message": detail
+                    }
+                });
+                (StatusCode::INTERNAL_SERVER_ERROR, error_body)
+            }
+        };
+
+        let body_str = serde_json::to_string(&body).unwrap_or_else(|_| {
+            return r#"{"error":{"message":"failed to serialize error response"}}"#.to_string();
+        });
+        return (status, body_str).into_response();
+    }
+}
+
 static COLLECTION_NAME: &str = "lecturers";
 
 #[tokio::main]
@@ -55,7 +161,7 @@ async fn main() {
     let app = Router::new()
         .route("/healthcheck", get(health_check))
         .route("/supervisors/pick", post(pick_supervisor))
-        .layer(CorsLayer::permissive()); // Allow all origins for dev
+        .layer(CorsLayer::permissive());
 
     let port = env::var("PORT").unwrap_or_else(|_| return "3000".to_string());
     let host = env::var("HOST").unwrap_or_else(|_| return "127.0.0.1".to_string());
@@ -159,9 +265,159 @@ async fn query_qdrant_with_retry(
     .unwrap(); // All retries exhausted — let the panic propagate.
 }
 
+/// Sends a chat-completion request to the `OpenRouter` API, checks the HTTP
+/// status code, and parses the response body.
+///
+/// # Why this is a separate function
+///
+/// The request body construction, HTTP call, status-code gating, and chat-
+/// completion deserialization collectively represent a single responsibility:
+/// "call the LLM and get back a structured `ChatCompletionResponse`."
+/// Extracting it keeps `pick_supervisor` focused on orchestration.
+///
+/// # Arguments
+///
+/// * `openrouter_base_url` - Base URL for the `OpenRouter` API.
+/// * `openrouter_api_key` - `OpenRouter` API key.
+/// * `query_prompt` - The assembled user prompt (context + JSON schema).
+///
+/// # Returns
+///
+/// The `ChatCompletionResponse` on success.
+///
+/// # Errors
+///
+/// `AppError::OpenRouter` on non-2xx upstream status. `AppError::Deserialization`
+/// when the 2xx body cannot be parsed. `AppError::EmptyChoices` when the LLM
+/// returns zero choices. `AppError::Internal` on network/HTTP-client errors.
+async fn send_openrouter_chat_completion(
+    openrouter_base_url: &str,
+    openrouter_api_key: &str,
+    query_prompt: &str,
+) -> Result<ChatCompletionResponse, AppError> {
+    // `response_format` must use the API-supported format. DeepSeek (and
+    // OpenAI-compatible providers) expect `{"type": "json_object"}` — sending
+    // a raw JSON Schema object with `"type": "object"` at the root is rejected
+    // because the provider interprets `response_format.type` and sees `object`,
+    // which is not a recognised variant (valid: json_object, json_schema,
+    // regex, text).
+    let request_body = json!({
+        "model": "deepseek/deepseek-v4-flash",
+        "messages": [
+            {
+                "role": "system",
+                "content": "Answer based only on given context. Do not search the internet or make any tool calls."
+            },
+            {
+                "role": "user",
+                "content": query_prompt
+            }
+        ],
+        "response_format": {
+            "type": "json_object"
+        },
+        "provider": {
+            "only": ["deepseek"],
+            "allow_fallbacks": false
+        }
+    });
+    let reqwest_client = reqwest::Client::builder().build().map_err(|e| {
+        return AppError::Internal(format!("failed to build HTTP client: {e}"));
+    })?;
+    let request = reqwest_client
+        .request(
+            reqwest::Method::POST,
+            format!("{openrouter_base_url}/chat/completions"),
+        )
+        .header("Authorization", format!("Bearer {openrouter_api_key}"))
+        .json(&request_body);
+    let response = request.send().await.map_err(|e| {
+        return AppError::Internal(format!("HTTP request to OpenRouter failed: {e}"));
+    })?;
+
+    // Capture the HTTP status code immediately — `.text()` consumes the
+    // response, so we must read it before attempting to parse the body.
+    let status = response.status();
+
+    // Read the raw body once so we can inspect it for both success and error
+    // paths without consuming the response twice.
+    let raw_text = response.text().await.map_err(|e| {
+        return AppError::Internal(format!("failed to read response body: {e}"));
+    })?;
+
+    // If the upstream API returned a non-2xx status, parse the structured error
+    // payload so the frontend sees a meaningful message rather than a generic
+    // deserialization failure.
+    if !status.is_success() {
+        let error_response: OpenRouterErrorResponse = serde_json::from_str(&raw_text)
+            .unwrap_or_else(|_| {
+                // If the body is not even valid JSON, fall back to a minimal
+                // error so the handler never panics.
+                return OpenRouterErrorResponse {
+                    error: OpenRouterError {
+                        message: format!("OpenRouter returned HTTP {status} with unparseable body"),
+                        code: i32::from(status.as_u16()),
+                        metadata: None,
+                    },
+                };
+            });
+        eprintln!(
+            "OpenRouter error ({}): {}",
+            status, error_response.error.message
+        );
+        return Err(AppError::OpenRouter {
+            status,
+            message: error_response.error.message,
+            code: error_response.error.code,
+            metadata: error_response.error.metadata,
+        });
+    }
+
+    // The upstream returned 2xx — parse the chat-completion body. An error
+    // here indicates a schema mismatch between our struct and the actual API
+    // response (provider API change, or the model was in streaming mode, etc.).
+    let response_body: ChatCompletionResponse = serde_json::from_str(&raw_text).map_err(|e| {
+        return AppError::Deserialization {
+            context: "chat completion response".to_string(),
+            detail: e.to_string(),
+        };
+    })?;
+    return Ok(response_body);
+}
+
+/// Core business-logic handler for the `POST /supervisors/pick` endpoint.
+///
+/// # Flow
+///
+/// 1. Reads Qdrant / `OpenRouter` config from environment variables.
+/// 2. Builds a nearest-neighbour vector query from the user's input topics and
+///    biography and sends it to Qdrant (with retry).
+/// 3. Collects the Qdrant payloads into a context string.
+/// 4. Sends the context, along with a JSON-schema-based prompt, to the
+///    `OpenRouter` chat-completions API to produce structured recommendations.
+/// 5. Deserializes the LLM's response into `PickSupervisorResponse` and returns
+///    it to the frontend.
+///
+/// # Arguments
+///
+/// * `payload` - Validated JSON body containing `interesting_topics` and
+///   `additional_text`.
+///
+/// # Returns
+///
+/// * `Ok(Json<PickSupervisorResponse>)` — two lecturer recommendations.
+/// * `Err(AppError)` — any upstream or internal failure, mapped to the
+///   appropriate HTTP status code.
+///
+/// # Errors
+///
+/// Returns `AppError::OpenRouter` when the upstream API returns a non-2xx
+/// status code. Returns `AppError::Deserialization` when the upstream response
+/// or the LLM output does not match the expected structure. Returns
+/// `AppError::EmptyChoices` if the LLM returns zero choices.
 async fn pick_supervisor(
     Json(payload): Json<PickSupervisorRequest>,
-) -> Json<PickSupervisorResponse> {
+) -> Result<Json<PickSupervisorResponse>, AppError> {
     let interesting_topics_str: Vec<String> = payload
         .interesting_topics
         .iter()
@@ -194,7 +450,11 @@ async fn pick_supervisor(
         .result
         .iter()
         .map(|item| {
-            return item.payload.get("text").unwrap().to_string();
+            return format!(
+                "Slug: {}\nText: {}",
+                item.payload.get("slug").unwrap(),
+                item.payload.get("text").unwrap()
+            );
         })
         .collect();
     let context = context.join("\n\n");
@@ -230,35 +490,28 @@ async fn pick_supervisor(
             serde_json::to_string(&response_schema).unwrap().as_str(),
             1,
         );
-    let request_body = json!({
-        "model": "deepseek/deepseek-v4-flash",
-        "messages": [
-            {
-                "role": "system",
-                "content": "Answer based only on given context. Do not search the internet or make any tool calls."
-            },
-            {
-                "role": "user",
-                "content": query_prompt
-            }
-        ],
-        "response_format": response_schema
-    });
-    let reqwest_client = reqwest::Client::builder().build().unwrap();
-    let request = reqwest_client
-        .request(
-            reqwest::Method::POST,
-            format!("{openrouter_base_url}/chat/completions"),
-        )
-        .header("Authorization", format!("Bearer {openrouter_api_key}"))
-        .json(&request_body);
-    let response = request.send().await.unwrap();
-    let raw_text = response.text().await.unwrap();
-    let response_body: ChatCompletionResponse = serde_json::from_str(&raw_text).unwrap();
-    let raw_message_content = &response_body.choices[0].message.content;
+    println!("query_prompt = {query_prompt}");
 
-    let response: PickSupervisorResponse = serde_json::from_str(raw_message_content).unwrap();
-    return Json(response);
+    let response_body =
+        send_openrouter_chat_completion(&openrouter_base_url, &openrouter_api_key, &query_prompt)
+            .await?;
+
+    let first_choice = response_body.choices.into_iter().next().ok_or_else(|| {
+        return AppError::EmptyChoices;
+    })?;
+    let raw_message_content = &first_choice.message.content;
+
+    // The LLM output should be valid JSON matching `PickSupervisorResponse`.
+    // If it is not, report the raw content back so the developer can debug the
+    // model's output.
+    let response: PickSupervisorResponse =
+        serde_json::from_str(raw_message_content).map_err(|e| {
+            return AppError::Deserialization {
+                context: "LLM output".to_string(),
+                detail: format!("{e}. Raw content: {raw_message_content}"),
+            };
+        })?;
+    return Ok(Json(response));
 }
 
 #[cfg(test)]
