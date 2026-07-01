@@ -187,7 +187,8 @@ static NEAREST_VECTOR_QUERY_TEMPLATE: &str = r"
 ";
 
 static QUERY_PROMPT_TEMPLATE: &str = r"
-Context: {context}
+Context:
+{context}
 
 Query: Which lecturer, based on the context alone, should be my research supervsior? STRICTLY return TWO of the most promising results following the format from this JSON schema: {response_schema}. The length of `potential_supervisors` should be 2, meaning return 2 of of most promising results.
 
@@ -490,7 +491,6 @@ async fn pick_supervisor(
             serde_json::to_string(&response_schema).unwrap().as_str(),
             1,
         );
-    println!("query_prompt = {query_prompt}");
 
     let response_body =
         send_openrouter_chat_completion(&openrouter_base_url, &openrouter_api_key, &query_prompt)
