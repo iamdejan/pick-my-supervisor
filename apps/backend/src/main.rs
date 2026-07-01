@@ -57,13 +57,13 @@ fn extract_u64_from_point_id(point_id: &PointId) -> Option<u64> {
 }
 
 static TEMPLATE: &str = r"
-Area of interest:
-{}
+# STUDENT
 
-Additional text:
-{}
+## Biography:
+{additional_text}
 
-Based on the given information, who is the most suitable supervisor?
+## Area of Expertise (seeking):
+{interesting_topics}
 ";
 
 /// Queries the Qdrant database to find the nearest points matching the given
@@ -145,8 +145,8 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Val
         .collect();
     let interesting_topics_str = interesting_topics_str.join("\n");
     let interesting_topics_str = interesting_topics_str.as_str();
-    let text = TEMPLATE.replacen("{}", interesting_topics_str, 1).replacen(
-        "{}",
+    let text = TEMPLATE.replacen("{interesting_topics}", interesting_topics_str, 1).replacen(
+        "{additional_text}",
         payload.additional_text.as_str(),
         1,
     );
