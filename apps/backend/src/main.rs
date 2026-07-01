@@ -30,6 +30,22 @@ struct PickSupervisorResponse {
     pub potential_supervisors: Vec<PickSupervisorData>,
 }
 
+#[derive(Serialize, Deserialize)]
+struct ChatCompletionMessage {
+    pub content: String,
+    pub role: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ChatCompletionChoice {
+    pub message: ChatCompletionMessage,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ChatCompletionResponse {
+    pub choices: Vec<ChatCompletionChoice>,
+}
+
 static COLLECTION_NAME: &str = "lecturers";
 
 #[tokio::main]
@@ -235,8 +251,11 @@ async fn pick_supervisor(Json(payload): Json<PickSupervisorRequest>) -> Json<Pic
         .header("Authorization", format!("Bearer {openrouter_api_key}"))
         .json(&request_body);
     let response = request.send().await.unwrap();
-    let response_body: PickSupervisorResponse = response.json().await.unwrap();
-    return Json(response_body);
+    let response_body: ChatCompletionResponse = response.json().await.unwrap();
+    let raw_message_content = &response_body.choices[0].message.content;
+
+    let response: PickSupervisorResponse = serde_json::from_str(raw_message_content).unwrap();
+    return Json(response);
 }
 
 #[cfg(test)]
