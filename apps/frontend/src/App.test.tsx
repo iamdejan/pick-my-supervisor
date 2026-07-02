@@ -70,6 +70,8 @@ describe("App", () => {
 
   it("calls the API on form submit and displays results", async () => {
     const mockResponse = {
+      thinking:
+        "Dr. Zati and Dr. Narsimlu were selected because their research areas most closely align with the student's stated interest in machine learning. Their expertise spans software engineering, human-computer interaction, and data science, offering a complementary match.",
       potential_supervisors: [
         {
           name: "DR. ZATI HAKIM BINTI AZIZUL HASAN",
@@ -127,6 +129,54 @@ describe("App", () => {
       "href",
       "https://umexpert.um.edu.my/narsimlu-kemsaram.html",
     );
+  });
+
+  it("displays the AI thinking info box and disclaimer warnings when results are shown", async () => {
+    const mockResponse = {
+      thinking:
+        "Dr. Zati and Dr. Narsimlu were selected because their research areas align with machine learning.",
+      potential_supervisors: [
+        {
+          name: "DR. ZATI HAKIM BINTI AZIZUL HASAN",
+          slug: "zati",
+          brief_summary:
+            "Dr. Zati specializes in software engineering and human-computer interaction.",
+        },
+        {
+          name: "DR. NARSIMLU KEMSARAM",
+          slug: "narsimlu-kemsaram",
+          brief_summary:
+            "Dr. Narsimlu is an expert in machine learning and data science.",
+        },
+      ],
+    };
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
+      json: () => Promise.resolve(mockResponse),
+    });
+
+    render(() => <App />);
+
+    const submitBtn = screen.getByText("Find My Supervisor");
+    fireEvent.click(submitBtn);
+
+    expect(
+      await screen.findByText(
+        "Dr. Zati and Dr. Narsimlu were selected because their research areas align with machine learning.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        "This data is scraped from UM Expert and may not reflect the lecturer's current preferences or areas of interest.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        "AI may hallucinate and should not be trusted 100%. It is the responsibility of students to verify and pick their own supervisors.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows error message when the API call fails", async () => {
