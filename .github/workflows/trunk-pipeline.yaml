@@ -51,15 +51,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: backend-release-binary
-          path: apps/backend/
+          path: apps/backend/target/release/
       - name: Make binary executable
-        run: chmod +x apps/backend/main
+        run: chmod +x apps/backend/target/release/main
       - id: 'auth'
         uses: 'google-github-actions/auth@v3'
         with:
           credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}'
       - name: 'Set up cloud SDK'
         uses: google-github-actions/setup-gcloud@v3
+      - name: List down files
+        run: 'ls ./apps/backend -al'
       - name: 'Deploy to Cloud Run'
         run: 'gcloud run deploy pick-my-supervisor --source ./apps/backend --region asia-southeast1 --allow-unauthenticated --set-env-vars HOST=${{ vars.HOST }},OPENROUTER_BASE_URL=${{ vars.OPENROUTER_BASE_URL }},QDRANT_CLUSTER_ENDPOINT=${{ secrets.QDRANT_CLUSTER_ENDPOINT }} --set-secrets="QDRANT_API_KEY=qdrant-api-key:latest,OPENROUTER_API_KEY=openrouter-api-key:latest"'
 
