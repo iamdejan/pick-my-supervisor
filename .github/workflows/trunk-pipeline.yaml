@@ -54,6 +54,12 @@ jobs:
           path: apps/backend/
       - name: Make binary executable
         run: chmod +x apps/backend/main
+      - name: Install Tree Utility
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tree
+      - name: View Backend Directory Structure
+        run: 'tree -L 3 ./apps/backend'
       - id: 'auth'
         uses: 'google-github-actions/auth@v3'
         with:
