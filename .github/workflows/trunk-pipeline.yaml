@@ -51,9 +51,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: backend-release-binary
-          path: apps/backend/
+          path: apps/backend/target/release/
       - name: Make binary executable
-        run: chmod +x apps/backend/main
+        run: chmod +x apps/backend/target/release/main
       - name: Install Tree Utility
         run: |
           sudo apt-get update
