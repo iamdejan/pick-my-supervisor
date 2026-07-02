@@ -15,6 +15,10 @@ jobs:
         uses: actions/checkout@v7
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/backend
       - name: Install cargo-fmt
         run: rustup component add rustfmt
       - name: Run cargo fmt
