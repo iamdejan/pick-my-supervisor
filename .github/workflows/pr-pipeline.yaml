@@ -25,10 +25,13 @@ jobs:
         run: cargo fmt --check
         working-directory: apps/backend
       - name: Run cargo clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --release -- -D warnings
         working-directory: apps/backend
-      - name: Run cargo test
-        run: cargo test
+      - name: Run cargo build (release)
+        run: cargo build --release
+        working-directory: apps/backend
+      - name: Run cargo test (release)
+        run: cargo test --release
         working-directory: apps/backend
 
   frontend:

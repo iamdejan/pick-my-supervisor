@@ -24,6 +24,7 @@ type PickSupervisorData = {
 };
 
 type PickSupervisorResponse = {
+  justification?: string;
   potential_supervisors?: PickSupervisorData[];
 };
 
@@ -189,6 +190,28 @@ export default function App(): JSX.Element {
                     : ""}
                   :
                 </h2>
+                {/* AI's thinking/reasoning info box with lightbulb icon */}
+                <Show when={pickSupervisorTask()!.justification}>
+                  <div class="mb-3 flex gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
+                    <svg
+                      class="mt-0.5 size-5 shrink-0 text-blue-600 dark:text-blue-400"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
+                      />
+                    </svg>
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                      {pickSupervisorTask()!.justification}
+                    </p>
+                  </div>
+                </Show>
                 <p class="mb-3 text-sm text-muted-foreground">
                   You can click the link on supervisor's name to find out more
                   about them.
@@ -203,6 +226,50 @@ export default function App(): JSX.Element {
                       />
                     )}
                   </For>
+                </div>
+                {/* Disclaimer warning boxes */}
+                <div class="mt-4 flex flex-col gap-2">
+                  <div class="flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
+                    <svg
+                      class="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                      />
+                    </svg>
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                      This data is scraped from UM Expert and may not reflect
+                      the lecturer's current preferences or areas of interest.
+                    </p>
+                  </div>
+                  <div class="flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
+                    <svg
+                      class="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                      />
+                    </svg>
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                      AI may hallucinate and should not be trusted 100%. It is
+                      the responsibility of students to verify and pick their
+                      own supervisors.
+                    </p>
+                  </div>
                 </div>
               </div>
             </Match>
