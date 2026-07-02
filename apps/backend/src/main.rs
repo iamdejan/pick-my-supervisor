@@ -156,7 +156,7 @@ static COLLECTION_NAME: &str = "lecturers";
 
 #[tokio::main]
 async fn main() {
-    dotenvy::dotenv().unwrap();
+    dotenvy::dotenv().ok();
 
     let app = Router::new()
         .route("/healthcheck", get(health_check))
