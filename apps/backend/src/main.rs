@@ -190,12 +190,21 @@ static NEAREST_VECTOR_QUERY_TEMPLATE: &str = r"
 ";
 
 static QUERY_PROMPT_TEMPLATE: &str = r"
-Context:
+## Student's Input
+
+### Biography:
+{additional_text}
+
+### Topics of Interest:
+{interesting_topics}
+
+## Candidate Lecturers (retrieved via vector search)
+
 {context}
 
-Query: Which lecturer, based on the context alone, should be my research supervsior? STRICTLY return TWO of the most promising results following the format from this JSON schema: {response_schema}. The length of `potential_supervisors` should be 2, meaning return 2 of of most promising results. For each supervisor, include a `brief_summary` that concisely combines their biography and area of expertise into a single paragraph of no more than 3 sentences. Write the summary in plain English — do not use markdown formatting.
+Query: Based on the student's biography and topics of interest above, which TWO lecturers from the candidate list are the best fit as a research supervisor? STRICTLY return TWO of the most promising results following the format from this JSON schema: {response_schema}. The length of `potential_supervisors` should be 2, meaning return 2 of the most promising results. For each supervisor, include a `brief_summary` that concisely combines their biography and area of expertise into a single paragraph of no more than 3 sentences. Write the summary in plain English — do not use markdown formatting.
 
-For the `justification` field, explain in plain English (2-3 sentences) why you picked these two lecturers over the others in the context. Focus on how their expertise aligns with the student's interests and background.
+For the `justification` field, explain in plain English (2-3 sentences) why you picked these two lecturers over the others in the candidate list. Focus on how their expertise aligns with the student's interests and background. Make sure that the justification explains 'why each of the lecturer would a be good fit', instead of 'why these 2 lecturers complement each other as research supervisor', as a student is only allowed to pick ONE supervisor, NOT TWO.
 ";
 
 /// Queries the Qdrant database to find the nearest points matching the given
@@ -556,6 +565,8 @@ async fn pick_supervisor(
         ]
     });
     let query_prompt = QUERY_PROMPT_TEMPLATE
+        .replacen("{interesting_topics}", interesting_topics_str, 1)
+        .replacen("{additional_text}", payload.additional_text.as_str(), 1)
         .replacen("{context}", context.as_str(), 1)
         .replacen(
             "{response_schema}",
