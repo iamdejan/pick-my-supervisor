@@ -8,11 +8,12 @@ use axum::{
 };
 use backon::{ExponentialBuilder, Retryable};
 use qdrant_client::{
-    Qdrant,
+    Qdrant, QdrantError,
     qdrant::{Document, Query, QueryPointsBuilder},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use tonic::Code;
 use tower_http::cors::CorsLayer;
 
 #[derive(Serialize, Deserialize)]
@@ -198,7 +199,7 @@ For the `justification` field, explain in plain English (2-3 sentences) why you 
 ";
 
 /// Queries the Qdrant database to find the nearest points matching the given
-/// text, with exponential backoff retry on failure.
+/// text, with exponential backoff retry on transient failures.
 ///
 /// # Why retry?
 ///
@@ -206,13 +207,22 @@ For the `justification` field, explain in plain English (2-3 sentences) why you 
 /// provides resilience by retrying with increasing delays between attempts,
 /// giving the server time to recover from transient load spikes.
 ///
+/// # Why some errors are NOT retried
+///
+/// TLS configuration failures (missing native CA certificates, unreachable
+/// endpoints) are permanent — no amount of waiting will resolve them.  The
+/// retry predicate inspects the error and returns `false` for such errors so
+/// the caller can surface the real problem immediately.
+///
 /// # Flow
 ///
 /// 1. Clones the query text so each retry attempt owns its copy.
 /// 2. Wraps the Qdrant `.query()` call in a closure.
 /// 3. Applies `backon::Retryable` with `ExponentialBuilder::default()`,
 ///    which starts at a 1-second delay and doubles on each retry.
-/// 4. Awaits the retry future; on success, returns the response.
+/// 4. The `.when()` predicate skips retry for permanent errors (TLS config,
+///    invalid URI).
+/// 5. Awaits the retry future; on success, returns the response.
 ///
 /// # Arguments
 ///
@@ -222,16 +232,16 @@ For the `justification` field, explain in plain English (2-3 sentences) why you 
 ///
 /// # Returns
 ///
-/// The raw `QueryResponse` from Qdrant.
+/// The raw `QueryResponse` from Qdrant on success, or an `AppError` on failure.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if all retry attempts are exhausted and the query still fails.
+/// Returns `AppError::Internal` when all retry attempts are exhausted.
 async fn query_qdrant_with_retry(
     qdrant_client: &Qdrant,
     openrouter_api_key: &str,
     text: &str,
-) -> qdrant_client::qdrant::QueryResponse {
+) -> Result<qdrant_client::qdrant::QueryResponse, AppError> {
     // Owned copy placed outside the closure so the closure captures a
     // reference — allowing it to be FnMut (called multiple times).
     let query_text = text.to_owned();
@@ -259,13 +269,57 @@ async fn query_qdrant_with_retry(
     })
     .retry(ExponentialBuilder::default())
     .when(|e| {
-        // Retry on every error — timeouts are the primary concern on the free
-        // plan, but any transient failure should be retried.
         eprintln!("Qdrant query failed, retrying: {e}");
-        return true;
+        // Only retry on transient errors. TLS config failures and invalid
+        // URIs are permanent — they will not resolve on their own.
+        return is_retryable_qdrant_error(e);
     })
     .await
-    .unwrap(); // All retries exhausted — let the panic propagate.
+    .map_err(|e| {
+        return AppError::Internal(format!("Qdrant query failed after all retries: {e}"));
+    });
+}
+
+/// Decides whether a Qdrant error is likely transient and worth retrying.
+///
+/// # Arguments
+///
+/// * `error` - The error returned by a Qdrant API call.
+///
+/// # Returns
+///
+/// `true` if the error is transient (timeout, resource exhaustion,
+/// network unavailability) and should be retried; `false` for permanent
+/// errors like missing TLS certificates or invalid URIs.
+fn is_retryable_qdrant_error(error: &QdrantError) -> bool {
+    match error {
+        // Qdrant server responded with a retry-after hint — definitely retry.
+        // IO errors (network drops) and conversion errors are also transient.
+        QdrantError::ResourceExhaustedError { .. }
+        | QdrantError::Io(_)
+        | QdrantError::ConversionError(_) => return true,
+        QdrantError::ResponseError { status } => {
+            // TLS config failures are permanent — no amount of waiting will
+            // make native CA certificates appear in the container.
+            if status.code() == Code::Internal
+                && status.message().contains("Failed to create TLS config")
+            {
+                return false;
+            }
+            // Connection timeouts, server unavailable, etc. are transient.
+            return matches!(
+                status.code(),
+                Code::DeadlineExceeded
+                    | Code::Unavailable
+                    | Code::Cancelled
+                    | Code::ResourceExhausted
+                    | Code::Aborted
+            );
+        }
+        // Invalid URI, payload deserialization failures, etc. are permanent
+        // or local bugs — retrying won't help.
+        _ => return false,
+    }
 }
 
 /// Sends a chat-completion request to the `OpenRouter` API, checks the HTTP
@@ -447,7 +501,9 @@ async fn pick_supervisor(
         .unwrap();
     // The actual query is wrapped with exponential backoff via `backon`
     // so intermittent timeouts on the free plan are retried automatically.
-    let query_response = query_qdrant_with_retry(&qdrant_client, &openrouter_api_key, &text).await;
+    // Permanent errors (missing CA certs, invalid URI) fail immediately.
+    let query_response =
+        query_qdrant_with_retry(&qdrant_client, &openrouter_api_key, &text).await?;
 
     let context: Vec<_> = query_response
         .result
