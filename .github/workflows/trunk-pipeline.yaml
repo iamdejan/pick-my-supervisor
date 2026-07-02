@@ -15,6 +15,10 @@ jobs:
         uses: actions/checkout@v7
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/backend
       - name: Install cargo-fmt
         run: rustup component add rustfmt
       - name: Run cargo fmt
@@ -22,12 +26,64 @@ jobs:
         working-directory: apps/backend
       - name: Install cargo-clippy
         run: rustup component add clippy
-      - name: Run cargo clippy
-        run: cargo clippy -- -D warnings
+      - name: Run cargo clippy (release)
+        run: cargo clippy --release -- -D warnings
         working-directory: apps/backend
-      - name: Run cargo test
-        run: cargo test
+      - name: Run cargo build (release)
+        run: cargo build --release
         working-directory: apps/backend
+      - name: Run cargo test (release)
+        run: cargo test --release
+        working-directory: apps/backend
+      - name: Upload release binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-release-binary
+          path: apps/backend/target/release/main
+
+  backend-deploy:
+    runs-on: ubuntu-slim
+    needs: backend
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v7
+      - name: Download release binary
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-release-binary
+          path: apps/backend/
+      - name: Make binary executable
+        run: chmod +x apps/backend/main
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v3'
+        with:
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}'
+      - name: 'Set up cloud SDK'
+        uses: google-github-actions/setup-gcloud@v3
+      - name: 'Set up Docker Buildx'
+        uses: docker/setup-buildx-action@v3
+      - name: 'Configure Docker for Artifact Registry'
+        run: gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
+      - name: 'Ensure Artifact Registry repository exists'
+        run: |
+          gcloud artifacts repositories create pick-my-supervisor \
+            --repository-format=docker \
+            --location=asia-southeast1 \
+            || true
+      - name: 'Build and push Docker image'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/backend
+          push: true
+          tags: asia-southeast1-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/pick-my-supervisor/backend:${{ github.sha }}
+      - name: 'Deploy to Cloud Run'
+        run: |
+          gcloud run deploy pick-my-supervisor \
+            --image "asia-southeast1-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/pick-my-supervisor/backend:${{ github.sha }}" \
+            --region asia-southeast1 \
+            --allow-unauthenticated \
+            --set-env-vars="HOST=${{ vars.HOST }},OPENROUTER_BASE_URL=${{ vars.OPENROUTER_BASE_URL }},QDRANT_CLUSTER_ENDPOINT=${{ secrets.QDRANT_CLUSTER_ENDPOINT }}" \
+            --set-secrets="QDRANT_API_KEY=qdrant-api-key:latest,OPENROUTER_API_KEY=openrouter-api-key:latest"
 
   frontend:
     strategy:
