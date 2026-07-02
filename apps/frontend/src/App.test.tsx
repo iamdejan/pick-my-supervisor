@@ -71,8 +71,18 @@ describe("App", () => {
   it("calls the API on form submit and displays results", async () => {
     const mockResponse = {
       potential_supervisors: [
-        { name: "DR. ZATI HAKIM BINTI AZIZUL HASAN", slug: "zati" },
-        { name: "DR. NARSIMLU KEMSARAM", slug: "narsimlu-kemsaram" },
+        {
+          name: "DR. ZATI HAKIM BINTI AZIZUL HASAN",
+          slug: "zati",
+          brief_summary:
+            "Dr. Zati specializes in software engineering and human-computer interaction. Her research focuses on usability and accessibility.",
+        },
+        {
+          name: "DR. NARSIMLU KEMSARAM",
+          slug: "narsimlu-kemsaram",
+          brief_summary:
+            "Dr. Narsimlu is an expert in machine learning and data science. His work explores predictive modeling and big data analytics.",
+        },
       ],
     };
 

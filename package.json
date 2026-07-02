@@ -7,7 +7,7 @@
     "backend:start": "cd ./apps/backend && cargo run",
     "backend:build": "cd ./apps/backend && cargo build",
     "backend:seed": "cd ./apps/backend && cargo run --bin seed",
-    "backend:fmt": "cd ./apps/backend && cargo fmt",
+    "backend:fmt": "cd ./apps/backend && cargo fmt && cargo clippy --fix --allow-dirty",
     "backend:test": "cd ./apps/backend && cargo test",
     "frontend:start": "pnpm --filter frontend run start",
     "frontend:deps": "pnpm --filter frontend run deps",
