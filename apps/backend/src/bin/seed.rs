@@ -21,6 +21,7 @@ static LECTURER_SLUGS: &[&str] = &[
     "cswoo",
     "shahreeza",
     "fidah",
+    "aznulqalid",
 ];
 
 static TEMPLATE: &str = r"
