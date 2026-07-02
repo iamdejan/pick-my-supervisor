@@ -24,7 +24,7 @@ type PickSupervisorData = {
 };
 
 type PickSupervisorResponse = {
-  thinking?: string;
+  justification?: string;
   potential_supervisors?: PickSupervisorData[];
 };
 
@@ -191,7 +191,7 @@ export default function App(): JSX.Element {
                   :
                 </h2>
                 {/* AI's thinking/reasoning info box with lightbulb icon */}
-                <Show when={pickSupervisorTask()!.thinking}>
+                <Show when={pickSupervisorTask()!.justification}>
                   <div class="mb-3 flex gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
                     <svg
                       class="mt-0.5 size-5 shrink-0 text-blue-600 dark:text-blue-400"
@@ -208,7 +208,7 @@ export default function App(): JSX.Element {
                       />
                     </svg>
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                      {pickSupervisorTask()!.thinking}
+                      {pickSupervisorTask()!.justification}
                     </p>
                   </div>
                 </Show>

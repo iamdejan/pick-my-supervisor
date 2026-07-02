@@ -70,7 +70,7 @@ describe("App", () => {
 
   it("calls the API on form submit and displays results", async () => {
     const mockResponse = {
-      thinking:
+      justification:
         "Dr. Zati and Dr. Narsimlu were selected because their research areas most closely align with the student's stated interest in machine learning. Their expertise spans software engineering, human-computer interaction, and data science, offering a complementary match.",
       potential_supervisors: [
         {
@@ -133,7 +133,7 @@ describe("App", () => {
 
   it("displays the AI thinking info box and disclaimer warnings when results are shown", async () => {
     const mockResponse = {
-      thinking:
+      justification:
         "Dr. Zati and Dr. Narsimlu were selected because their research areas align with machine learning.",
       potential_supervisors: [
         {

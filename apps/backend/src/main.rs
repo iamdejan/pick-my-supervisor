@@ -30,7 +30,7 @@ struct PickSupervisorData {
 
 #[derive(Serialize, Deserialize)]
 struct PickSupervisorResponse {
-    pub thinking: String,
+    pub justification: String,
     pub potential_supervisors: Vec<PickSupervisorData>,
 }
 
@@ -194,7 +194,7 @@ Context:
 
 Query: Which lecturer, based on the context alone, should be my research supervsior? STRICTLY return TWO of the most promising results following the format from this JSON schema: {response_schema}. The length of `potential_supervisors` should be 2, meaning return 2 of of most promising results. For each supervisor, include a `brief_summary` that concisely combines their biography and area of expertise into a single paragraph of no more than 3 sentences. Write the summary in plain English — do not use markdown formatting.
 
-For the `thinking` field, explain in plain English (2-3 sentences) why you picked these two lecturers over the others in the context. Focus on how their expertise aligns with the student's interests and background.
+For the `justification` field, explain in plain English (2-3 sentences) why you picked these two lecturers over the others in the context. Focus on how their expertise aligns with the student's interests and background.
 ";
 
 /// Queries the Qdrant database to find the nearest points matching the given
@@ -466,7 +466,7 @@ async fn pick_supervisor(
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-            "thinking": {
+            "justification": {
                 "type": "string",
                 "description": "Plain English explanation (2-3 sentences) of why these two lecturers were selected over others in the context, based on how their expertise aligns with the student's interests and background."
             },
@@ -495,7 +495,7 @@ async fn pick_supervisor(
             }
         },
         "required": [
-            "thinking",
+            "justification",
             "potential_supervisors"
         ]
     });
