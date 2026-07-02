@@ -60,30 +60,8 @@ jobs:
           credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}'
       - name: 'Set up cloud SDK'
         uses: google-github-actions/setup-gcloud@v3
-      - name: 'Set up Docker Buildx'
-        uses: docker/setup-buildx-action@v3
-      - name: 'Configure Docker for Artifact Registry'
-        run: gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
-      - name: 'Ensure Artifact Registry repository exists'
-        run: |
-          gcloud artifacts repositories create pick-my-supervisor \
-            --repository-format=docker \
-            --location=asia-southeast1 \
-            || true
-      - name: 'Build and push Docker image'
-        uses: docker/build-push-action@v6
-        with:
-          context: apps/backend
-          push: true
-          tags: asia-southeast1-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/pick-my-supervisor/backend:${{ github.sha }}
       - name: 'Deploy to Cloud Run'
-        run: |
-          gcloud run deploy pick-my-supervisor \
-            --image "asia-southeast1-docker.pkg.dev/${{ steps.auth.outputs.project_id }}/pick-my-supervisor/backend:${{ github.sha }}" \
-            --region asia-southeast1 \
-            --allow-unauthenticated \
-            --set-env-vars="HOST=${{ vars.HOST }},OPENROUTER_BASE_URL=${{ vars.OPENROUTER_BASE_URL }},QDRANT_CLUSTER_ENDPOINT=${{ secrets.QDRANT_CLUSTER_ENDPOINT }}" \
-            --set-secrets="QDRANT_API_KEY=qdrant-api-key:latest,OPENROUTER_API_KEY=openrouter-api-key:latest"
+        run: 'gcloud run deploy pick-my-supervisor --source ./apps/backend --region asia-southeast1 --allow-unauthenticated --set-env-vars HOST=${{ vars.HOST }},OPENROUTER_BASE_URL=${{ vars.OPENROUTER_BASE_URL }},QDRANT_CLUSTER_ENDPOINT=${{ secrets.QDRANT_CLUSTER_ENDPOINT }} --set-secrets="QDRANT_API_KEY=qdrant-api-key:latest,OPENROUTER_API_KEY=openrouter-api-key:latest"'
 
   frontend:
     strategy:
