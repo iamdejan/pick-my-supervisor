@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import TagInput from "./components/TagInput";
 import ThemeToggle from "./components/ThemeToggle";
+import SupervisorCard from "./components/SupervisorCard";
 import { createTheme } from "./lib/use-theme";
 
 type PickSupervisorRequest = {
@@ -17,9 +18,9 @@ type PickSupervisorRequest = {
 };
 
 type PickSupervisorData = {
-  id: number;
   name: string;
   slug: string;
+  brief_summary: string;
 };
 
 type PickSupervisorResponse = {
@@ -99,14 +100,6 @@ export default function App(): JSX.Element {
       description: description(),
     });
   };
-
-  /**
-   * Builds the UMExpert profile URL from a lecturer slug.
-   * @param slug - The unique slug identifier for the lecturer.
-   * @returns The full UMExpert profile URL.
-   */
-  const buildUmExpertUrl = (slug: string): string =>
-    `https://umexpert.um.edu.my/${slug}.html`;
 
   return (
     <div class="relative flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
@@ -200,22 +193,17 @@ export default function App(): JSX.Element {
                   You can click the link on supervisor's name to find out more
                   about them.
                 </p>
-                <ul class="space-y-2">
+                <div class="grid gap-3">
                   <For each={pickSupervisorTask()!.potential_supervisors!}>
                     {(supervisor) => (
-                      <li>
-                        <a
-                          href={buildUmExpertUrl(supervisor.slug)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="text-primary underline-offset-2 hover:underline dark:text-foreground"
-                        >
-                          {supervisor.name}
-                        </a>
-                      </li>
+                      <SupervisorCard
+                        name={supervisor.name}
+                        slug={supervisor.slug}
+                        brief_summary={supervisor.brief_summary}
+                      />
                     )}
                   </For>
-                </ul>
+                </div>
               </div>
             </Match>
 

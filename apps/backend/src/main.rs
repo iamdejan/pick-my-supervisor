@@ -25,6 +25,7 @@ struct PickSupervisorRequest {
 struct PickSupervisorData {
     pub name: String,
     pub slug: String,
+    pub brief_summary: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -190,7 +191,7 @@ static QUERY_PROMPT_TEMPLATE: &str = r"
 Context:
 {context}
 
-Query: Which lecturer, based on the context alone, should be my research supervsior? STRICTLY return TWO of the most promising results following the format from this JSON schema: {response_schema}. The length of `potential_supervisors` should be 2, meaning return 2 of of most promising results.
+Query: Which lecturer, based on the context alone, should be my research supervsior? STRICTLY return TWO of the most promising results following the format from this JSON schema: {response_schema}. The length of `potential_supervisors` should be 2, meaning return 2 of of most promising results. For each supervisor, include a `brief_summary` that concisely combines their biography and area of expertise into a single paragraph of no more than 3 sentences. Write the summary in plain English — do not use markdown formatting.
 
 Do not hallucinate, and do not make any mistake. I believe in you.
 ";
@@ -474,11 +475,16 @@ async fn pick_supervisor(
                         },
                         "slug": {
                             "type": "string"
+                        },
+                        "brief_summary": {
+                            "type": "string",
+                            "description": "A concise paragraph combining the lecturer's biography and area of expertise, no more than 3 sentences."
                         }
                     },
                     "required": [
                         "name",
-                        "slug"
+                        "slug",
+                        "brief_summary"
                     ]
                 }
             }
