@@ -1,4 +1,4 @@
-import { createSignal, onMount, createEffect } from "solid-js";
+import { createSignal, onMount, createEffect, Accessor } from "solid-js";
 
 export type Theme = "light" | "dark";
 
@@ -70,7 +70,10 @@ function getInitialTheme(): Theme {
  *  - `theme` – a reactive signal holding the current theme.
  *  - `toggleTheme` – a function that switches between "light" and "dark".
  */
-export function createTheme() {
+export function createTheme(): {
+  theme: Accessor<Theme>;
+  toggleTheme: () => void;
+} {
   const [theme, setTheme] = createSignal<Theme>(getInitialTheme());
 
   /**
@@ -79,7 +82,7 @@ export function createTheme() {
    *
    * @param newTheme - The theme to apply.
    */
-  const applyTheme = (newTheme: Theme) => {
+  function applyTheme(newTheme: Theme): void {
     if (typeof document === "undefined") {
       return;
     }
@@ -88,7 +91,7 @@ export function createTheme() {
     root.classList.remove("light", "dark");
     root.classList.add(newTheme);
     root.setAttribute("data-kb-theme", newTheme);
-  };
+  }
 
   // Apply the initial theme once the component is mounted and set up a
   // listener for system-level theme changes so the UI stays in sync
@@ -97,15 +100,18 @@ export function createTheme() {
     applyTheme(theme());
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = (event: MediaQueryListEvent) => {
+
+    function handleChange(event: MediaQueryListEvent): void {
       const stored = getStoredTheme();
       if (!stored) {
         setTheme(event.matches ? "dark" : "light");
       }
-    };
+    }
 
     mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+    return (): void => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
   });
 
   // Keeps the DOM in sync whenever the theme signal changes.
@@ -117,9 +123,9 @@ export function createTheme() {
    * Toggles between "light" and "dark" themes. The selected theme is
    * persisted in localStorage so it survives page reloads.
    */
-  const toggleTheme = () => {
+  function toggleTheme(): void {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
-  };
+  }
 
   // Persist the current theme to localStorage whenever it changes.
   createEffect(() => {

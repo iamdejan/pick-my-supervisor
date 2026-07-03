@@ -5,7 +5,27 @@ on:
       - main
 
 jobs:
+  changes:
+    runs-on: ubuntu-slim
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v7
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+            frontend:
+              - 'apps/frontend/**'
+
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     strategy:
       matrix:
         os: ['ubuntu-slim']
@@ -40,8 +60,9 @@ jobs:
           path: apps/backend/target/release/main
 
   backend-deploy:
+    needs: [changes, backend]
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-slim
-    needs: backend
     steps:
       - name: Checkout repository code
         uses: actions/checkout@v7
@@ -68,23 +89,24 @@ jobs:
         run: 'gcloud run deploy pick-my-supervisor --source ./apps/backend --region asia-southeast1 --allow-unauthenticated --set-env-vars HOST=${{ vars.HOST }},OPENROUTER_BASE_URL=${{ vars.OPENROUTER_BASE_URL }},QDRANT_CLUSTER_ENDPOINT=${{ secrets.QDRANT_CLUSTER_ENDPOINT }} --set-secrets="QDRANT_API_KEY=qdrant-api-key:latest,OPENROUTER_API_KEY=openrouter-api-key:latest"'
 
   frontend:
-    strategy:
-      matrix:
-        os: ['ubuntu-slim']
-        node_version: ['24.18.0']
-    runs-on: ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: 'ubuntu-slim'
     steps:
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node_version }}
-          check-latest: false
       - name: Checkout repository code
         uses: actions/checkout@v4
-      - name: Install PNPM
-        run: npm install --global pnpm@11.9.0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.18.0'
+          check-latest: false
+          cache: 'pnpm'
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
       - name: Check Typings
         run: pnpm --filter frontend run type:check
       - name: Run lint
