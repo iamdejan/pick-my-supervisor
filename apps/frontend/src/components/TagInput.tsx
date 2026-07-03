@@ -150,6 +150,14 @@ export default function TagInput(props: TagInputProps): JSX.Element {
     setShowError(false);
   }
 
+  function getPlaceholder(): string {
+    if (props.tags.length > 0) {
+      return "";
+    }
+
+    return props.placeholder ?? "Type and press Enter to add tags";
+  }
+
   return (
     <div>
       <label
@@ -185,7 +193,7 @@ export default function TagInput(props: TagInputProps): JSX.Element {
           onInput={(e) => handleInput(e.currentTarget.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
-          placeholder={props.placeholder ?? "Type and press Enter to add tags"}
+          placeholder={getPlaceholder()}
           disabled={
             props.maxTags !== undefined && props.tags.length >= props.maxTags
           }
