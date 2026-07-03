@@ -57,12 +57,10 @@ jobs:
   frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    strategy:
-      matrix:
-        os: ['ubuntu-slim']
-        node_version: ['24.18.0']
-    runs-on: ${{ matrix.os }}
+    runs-on: 'ubuntu-slim'
     steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
@@ -75,8 +73,6 @@ jobs:
           node-version: '24.18.0'
           check-latest: false
           cache: 'pnpm'
-      - name: Checkout repository code
-        uses: actions/checkout@v4
       - name: Check Typings
         run: pnpm --filter frontend run type:check
       - name: Run lint
