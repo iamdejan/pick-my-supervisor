@@ -80,27 +80,27 @@ export default function App(): JSX.Element {
    * user types in the textarea. Truncation beyond `maxChars` is
    * prevented via the `maxLength` attribute on the element itself.
    */
-  const handleDescriptionInput = (
+  function handleDescriptionInput(
     event: Event & { currentTarget: HTMLTextAreaElement },
-  ) => {
+  ): void {
     const value = event.currentTarget.value;
     setDescription(value);
     setCharCount(value.length);
-  };
+  }
 
   /**
    * Triggers the pickSupervisor API call by setting the search-params
    * signal. Because the source is captured as a reactive value inside
    * createResource, changing it causes a re-fetch.
    */
-  const handleSubmit = (event: Event) => {
+  function handleSubmit(event: Event): void {
     event.preventDefault();
 
     setSearchParams({
       tags: tags(),
       description: description(),
     });
-  };
+  }
 
   return (
     <div class="relative flex min-h-screen flex-col items-center justify-center bg-background text-foreground">

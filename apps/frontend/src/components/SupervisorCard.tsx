@@ -12,8 +12,9 @@ export type SupervisorCardData = {
  * @param slug - The unique slug identifier for the lecturer.
  * @returns The full UMExpert profile URL.
  */
-const buildUmExpertUrl = (slug: string): string =>
-  `https://umexpert.um.edu.my/${slug}.html`;
+function buildUmExpertUrl(slug: string): string {
+  return `https://umexpert.um.edu.my/${slug}.html`;
+}
 
 /**
  * Renders a card displaying a lecturer's name (linked to their UMExpert

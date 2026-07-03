@@ -24,6 +24,27 @@ export default [
         ...globals.node,
       },
     },
+    // TypeScript-specific rules go here
+    rules: {
+      // Enforces explicit return types on all functions
+      "@typescript-eslint/explicit-function-return-type": "error",
+    },
+  },
+  {
+    // Apply the rule to all your JavaScript and TypeScript files
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "func-style": ["error", "declaration", { allowArrowFunctions: true }],
+      // Forces nested variable-assigned arrow functions to be traditional functions
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "VariableDeclarator[init.type='ArrowFunctionExpression']",
+          message:
+            "Use a function declaration instead of assigning an arrow function to a constant.",
+        },
+      ],
+    },
   },
   eslintPluginPrettierRecommended,
 ];

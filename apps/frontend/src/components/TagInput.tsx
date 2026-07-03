@@ -42,7 +42,7 @@ export default function TagInput(props: TagInputProps): JSX.Element {
    *
    * @param rawValue - The raw string value to add as a tag.
    */
-  const addTag = (rawValue: string) => {
+  function addTag(rawValue: string): void {
     const trimmed = rawValue.trim();
     if (trimmed.length === 0) {
       return;
@@ -63,7 +63,7 @@ export default function TagInput(props: TagInputProps): JSX.Element {
     props.onChange([...props.tags, trimmed]);
     setInputValue("");
     setShowError(false);
-  };
+  }
 
   /**
    * Handles keydown events on the text input.
@@ -77,7 +77,7 @@ export default function TagInput(props: TagInputProps): JSX.Element {
    *
    * @param event - The keyboard event.
    */
-  const handleKeyDown = (event: KeyboardEvent) => {
+  function handleKeyDown(event: KeyboardEvent): void {
     if (event.isComposing) {
       return;
     }
@@ -97,7 +97,7 @@ export default function TagInput(props: TagInputProps): JSX.Element {
       props.onChange(updated);
       setShowError(false);
     }
-  };
+  }
 
   /**
    * Handles the input event on the text input.
@@ -110,7 +110,7 @@ export default function TagInput(props: TagInputProps): JSX.Element {
    *
    * @param value - The raw string value from the input element.
    */
-  const handleInput = (value: string) => {
+  function handleInput(value: string): void {
     // Detect comma insertion on mobile keyboards (e.g. Gboard inserts ", ")
     const commaIndex = value.indexOf(",");
     if (commaIndex !== -1) {
@@ -126,7 +126,7 @@ export default function TagInput(props: TagInputProps): JSX.Element {
     }
 
     setInputValue(value);
-  };
+  }
 
   /**
    * Handles the blur event on the text input.
@@ -135,20 +135,20 @@ export default function TagInput(props: TagInputProps): JSX.Element {
    * Enter or comma. This commits any remaining text as a tag when
    * focus leaves the input.
    */
-  const handleBlur = () => {
+  function handleBlur(): void {
     addTag(inputValue());
-  };
+  }
 
   /**
    * Removes a tag at the specified index.
    *
    * @param index - Zero-based index of the tag to remove.
    */
-  const removeTag = (index: number) => {
+  function removeTag(index: number): void {
     const updated = props.tags.filter((_, i) => i !== index);
     props.onChange(updated);
     setShowError(false);
-  };
+  }
 
   return (
     <div>
