@@ -71,9 +71,17 @@ export default function TagInput(props: TagInputProps): JSX.Element {
    * - **Enter** or **,** – commit the tag and clear the input.
    * - **Backspace** on an empty input – remove the last tag.
    *
+   * Skips processing when an IME is composing (e.g. on-screen keyboards
+   * on mobile browsers), because the key value is unreliable during
+   * composition.
+   *
    * @param event - The keyboard event.
    */
   const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.isComposing) {
+      return;
+    }
+
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
       addTag(inputValue());
@@ -89,6 +97,46 @@ export default function TagInput(props: TagInputProps): JSX.Element {
       props.onChange(updated);
       setShowError(false);
     }
+  };
+
+  /**
+   * Handles the input event on the text input.
+   *
+   * On mobile browsers a comma key-press often bypasses `keydown` and
+   * inserts the comma character directly into the input. This handler
+   * detects commas (followed by an optional space) in the incoming
+   * value, commits everything before the first comma as a tag, and
+   * keeps any trailing text as the remaining input value.
+   *
+   * @param value - The raw string value from the input element.
+   */
+  const handleInput = (value: string) => {
+    // Detect comma insertion on mobile keyboards (e.g. Gboard inserts ", ")
+    const commaIndex = value.indexOf(",");
+    if (commaIndex !== -1) {
+      const beforeComma = value.slice(0, commaIndex);
+      const afterComma = value.slice(commaIndex + 1).replace(/^\s+/, "");
+
+      if (beforeComma.trim().length > 0) {
+        addTag(beforeComma.trim());
+      }
+
+      setInputValue(afterComma);
+      return;
+    }
+
+    setInputValue(value);
+  };
+
+  /**
+   * Handles the blur event on the text input.
+   *
+   * On mobile the user may dismiss the keyboard without pressing
+   * Enter or comma. This commits any remaining text as a tag when
+   * focus leaves the input.
+   */
+  const handleBlur = () => {
+    addTag(inputValue());
   };
 
   /**
@@ -134,8 +182,9 @@ export default function TagInput(props: TagInputProps): JSX.Element {
           id="tag-input-field"
           type="text"
           value={inputValue()}
-          onInput={(e) => setInputValue(e.currentTarget.value)}
+          onInput={(e) => handleInput(e.currentTarget.value)}
           onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
           placeholder={props.placeholder ?? "Type and press Enter to add tags"}
           disabled={
             props.maxTags !== undefined && props.tags.length >= props.maxTags
