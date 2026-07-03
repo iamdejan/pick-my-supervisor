@@ -63,17 +63,20 @@ jobs:
         node_version: ['24.18.0']
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node_version }}
           check-latest: false
+          cache: 'pnpm'
       - name: Checkout repository code
         uses: actions/checkout@v4
-      - name: Install PNPM
-        run: npm install --global pnpm@11.9.0
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
       - name: Check Typings
         run: pnpm --filter frontend run type:check
       - name: Run lint
