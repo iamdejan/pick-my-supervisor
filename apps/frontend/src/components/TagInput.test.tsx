@@ -92,9 +92,7 @@ describe("TagInput", () => {
     render(() => (
       <TagInput tags={["Rust"]} onChange={onChange} label="Interests" />
     ));
-    const input = screen.getByPlaceholderText(
-      "Type and press Enter to add tags",
-    );
+    const input = screen.getByRole("textbox");
     fireEvent.input(input, { target: { value: "Rust" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).not.toHaveBeenCalled();
@@ -113,9 +111,7 @@ describe("TagInput", () => {
     render(() => (
       <TagInput tags={["Rust"]} onChange={onChange} label="Interests" />
     ));
-    const input = screen.getByPlaceholderText(
-      "Type and press Enter to add tags",
-    );
+    const input = screen.getByRole("textbox");
     fireEvent.keyDown(input, { key: "Backspace" });
     expect(onChange).toHaveBeenCalledWith([]);
   });
@@ -145,9 +141,7 @@ describe("TagInput", () => {
         error="Too many tags"
       />
     ));
-    const input = screen.getByPlaceholderText(
-      "Type and press Enter to add tags",
-    );
+    const input = screen.getByRole("textbox");
     expect(input).toBeDisabled();
   });
 });
