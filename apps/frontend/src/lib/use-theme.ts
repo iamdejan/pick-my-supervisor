@@ -109,7 +109,9 @@ export function createTheme(): {
     }
 
     mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+    return (): void => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
   });
 
   // Keeps the DOM in sync whenever the theme signal changes.
