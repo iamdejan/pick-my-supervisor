@@ -5,7 +5,27 @@ on:
       - main
 
 jobs:
+  changes:
+    runs-on: ubuntu-slim
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v7
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+            frontend:
+              - 'apps/frontend/**'
+
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     strategy:
       matrix:
         os: ['ubuntu-slim']
@@ -35,6 +55,8 @@ jobs:
         working-directory: apps/backend
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     strategy:
       matrix:
         os: ['ubuntu-slim']
