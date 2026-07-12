@@ -41,6 +41,8 @@ Before running this project, ensure you have the following installed:
 
 ## Cloud Run Deployment (Backend)
 
+INFO: You should run `pnpm run backend:build-release` before deploying to backend.
+
 The backend is deployed to Google Cloud Run using source-based deployment.
 
 ### Prerequisites
